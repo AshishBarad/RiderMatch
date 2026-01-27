@@ -1,0 +1,25 @@
+Running Gradle task 'assembleDebug'...                          
+lib/features/profile/domain/usecases/get_users_by_ids_usecase.dart:1:8: Error: Error when reading 'lib/auth/domain/entities/user.dart': No such file or directory
+import '../../../../auth/domain/entities/user.dart';
+       ^
+lib/features/profile/domain/usecases/get_users_by_ids_usecase.dart:9:15: Error: Type 'User' not found.
+  Future<List<User>> call(List<String> userIds) {
+              ^^^^
+Target kernel_snapshot_program failed: Exception
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileFlutterBuildDebug'.
+> Process 'command '/Users/bti-001456/Flutter SDK/flutter/bin/flutter'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 5s
+Running Gradle task 'assembleDebug'...                              6.0s
+Gradle task assembleDebug failed with exit code 1

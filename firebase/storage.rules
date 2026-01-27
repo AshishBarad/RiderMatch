@@ -1,0 +1,54 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    function isValidImageSize() {
+      return request.resource.size < 5 * 1024 * 1024; // 5MB
+    }
+    
+    function isValidVideoSize() {
+      return request.resource.size < 50 * 1024 * 1024; // 50MB
+    }
+    
+    function isImageFile() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isVideoFile() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // Profile images
+    match /profile_images/{uid}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+                      isOwner(uid) && 
+                      isImageFile() && 
+                      isValidImageSize();
+    }
+    
+    // Ride media
+    match /ride_media/{rideId}/{mediaId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+                      ((isImageFile() && isValidImageSize()) || 
+                       (isVideoFile() && isValidVideoSize()));
+      // Note: In production, verify ride membership via Firestore
+    }
+    
+    // Documents
+    match /documents/{userId}/{fileName} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+  }
+}

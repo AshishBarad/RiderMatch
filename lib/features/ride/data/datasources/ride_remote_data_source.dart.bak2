@@ -1,0 +1,318 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../../domain/entities/ride.dart';
+
+abstract class RideRemoteDataSource {
+  Future<List<Ride>> getNearbyRides(
+    double lat,
+    double lng,
+    double radiusKm,
+    bool femaleOnly,
+  );
+  Future<Ride?> getRideById(String id);
+  Future<void> createRide(Ride ride);
+  Future<void> updateRide(Ride ride);
+  Future<void> requestToJoin(String rideId, String userId);
+  Future<void> acceptJoinRequest(String rideId, String userId);
+  Future<void> rejectJoinRequest(String rideId, String userId);
+  Future<void> removeParticipant(String rideId, String userId);
+  Future<void> inviteUser(String rideId, String userId);
+  Future<void> deleteRide(String rideId);
+  Future<List<Ride>> getCreatedRides(String userId);
+  Future<List<Ride>> getJoinedRides(String userId);
+  Future<List<Ride>> getRidesByCreators(List<String> userIds);
+}
+
+class RideRemoteDataSourceImpl implements RideRemoteDataSource {
+  final FirebaseFirestore _firestore;
+
+  RideRemoteDataSourceImpl({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  @override
+  Future<List<Ride>> getNearbyRides(
+    double lat,
+    double lng,
+    double radiusKm,
+    bool femaleOnly,
+  ) async {
+    try {
+      var query = _firestore
+          .collection('rides')
+          .where('status', isEqualTo: 'UPCOMING')
+          .where('isPublic', isEqualTo: true)
+          .orderBy('startDate')
+          .limit(50);
+
+      final snapshot = await query.get();
+      return snapshot.docs.map((doc) => _rideFromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Failed to get nearby rides: $e');
+    }
+  }
+
+  @override
+  Future<Ride?> getRideById(String id) async {
+    try {
+      final doc = await _firestore.collection('rides').doc(id).get();
+      if (!doc.exists) return null;
+      return _rideFromFirestore(doc);
+    } catch (e) {
+      throw Exception('Failed to get ride: $e');
+    }
+  }
+
+  @override
+  Future<void> createRide(Ride ride) async {
+    try {
+      await _firestore.collection('rides').doc(ride.id).set({
+        'rideId': ride.id,
+        'rideName': ride.name,
+        'description': ride.description,
+        'createdBy': ride.createdBy,
+        'maxParticipants': ride.maxParticipants,
+        'currentParticipants': ride.currentParticipants,
+        'startDate': Timestamp.fromDate(ride.startDate),
+        'status': ride.status,
+        'isPublic': ride.isPublic,
+        'fromLocation': {
+          'name': ride.fromLocation,
+          'lat': ride.fromLat,
+          'lng': ride.fromLng,
+        },
+        'toLocation': {
+          'name': ride.toLocation,
+          'lat': ride.toLat,
+          'lng': ride.toLng,
+        },
+        'distanceKm': ride.distanceKm,
+        'difficulty': ride.difficulty,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to create ride: $e');
+    }
+  }
+
+  @override
+  Future<void> updateRide(Ride ride) async {
+    try {
+      await _firestore.collection('rides').doc(ride.id).update({
+        'rideName': ride.name,
+        'description': ride.description,
+        'maxParticipants': ride.maxParticipants,
+        'currentParticipants': ride.currentParticipants,
+        'startDate': Timestamp.fromDate(ride.startDate),
+        'status': ride.status,
+        'isPublic': ride.isPublic,
+        'fromLocation': {
+          'name': ride.fromLocation,
+          'lat': ride.fromLat,
+          'lng': ride.fromLng,
+        },
+        'toLocation': {
+          'name': ride.toLocation,
+          'lat': ride.toLat,
+          'lng': ride.toLng,
+        },
+        'distanceKm': ride.distanceKm,
+        'difficulty': ride.difficulty,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update ride: $e');
+    }
+  }
+
+  @override
+  Future<void> requestToJoin(String rideId, String userId) async {
+    try {
+      await _firestore
+          .collection('rides')
+          .doc(rideId)
+          .collection('joinRequests')
+          .doc(userId)
+          .set({
+            'userId': userId,
+            'requestedAt': FieldValue.serverTimestamp(),
+            'status': 'PENDING',
+          });
+    } catch (e) {
+      throw Exception('Failed to request join: $e');
+    }
+  }
+
+  @override
+  Future<void> acceptJoinRequest(String rideId, String userId) async {
+    try {
+      final batch = _firestore.batch();
+
+      batch.delete(
+        _firestore
+            .collection('rides')
+            .doc(rideId)
+            .collection('joinRequests')
+            .doc(userId),
+      );
+
+      batch.set(
+        _firestore
+            .collection('rides')
+            .doc(rideId)
+            .collection('participants')
+            .doc(userId),
+        {'userId': userId, 'joinedAt': FieldValue.serverTimestamp()},
+      );
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to accept join request: $e');
+    }
+  }
+
+  @override
+  Future<void> rejectJoinRequest(String rideId, String userId) async {
+    try {
+      await _firestore
+          .collection('rides')
+          .doc(rideId)
+          .collection('joinRequests')
+          .doc(userId)
+          .delete();
+    } catch (e) {
+      throw Exception('Failed to reject join request: $e');
+    }
+  }
+
+  @override
+  Future<void> removeParticipant(String rideId, String userId) async {
+    try {
+      await _firestore
+          .collection('rides')
+          .doc(rideId)
+          .collection('participants')
+          .doc(userId)
+          .delete();
+    } catch (e) {
+      throw Exception('Failed to remove participant: $e');
+    }
+  }
+
+  @override
+  Future<void> inviteUser(String rideId, String userId) async {
+    try {
+      await _firestore
+          .collection('rides')
+          .doc(rideId)
+          .collection('invitations')
+          .doc(userId)
+          .set({
+            'userId': userId,
+            'invitedAt': FieldValue.serverTimestamp(),
+            'status': 'PENDING',
+          });
+    } catch (e) {
+      throw Exception('Failed to invite user: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteRide(String rideId) async {
+    try {
+      await _firestore.collection('rides').doc(rideId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete ride: $e');
+    }
+  }
+
+  @override
+  Future<List<Ride>> getCreatedRides(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('rides')
+          .where('createdBy', isEqualTo: userId)
+          .orderBy('startDate', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) => _rideFromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Failed to get created rides: $e');
+    }
+  }
+
+  @override
+  Future<List<Ride>> getJoinedRides(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('rides')
+          .where('participantIds', arrayContains: userId)
+          .orderBy('startDate', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) => _rideFromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Failed to get joined rides: $e');
+    }
+  }
+
+  @override
+  Future<List<Ride>> getRidesByCreators(List<String> userIds) async {
+    if (userIds.isEmpty) {
+      return [];
+    }
+
+    try {
+      final List<Ride> allRides = [];
+
+      // Firestore 'in' query supports up to 10 items
+      for (int i = 0; i < userIds.length; i += 10) {
+        final batch = userIds.skip(i).take(10).toList();
+
+        final snapshot = await _firestore
+            .collection('rides')
+            .where('createdBy', whereIn: batch)
+            .where('status', isEqualTo: 'UPCOMING')
+            .orderBy('startDate', descending: true)
+            .get();
+
+        allRides.addAll(
+          snapshot.docs.map((doc) => _rideFromFirestore(doc)).toList(),
+        );
+      }
+
+      // Sort all rides by start date
+      allRides.sort((a, b) => b.startDate.compareTo(a.startDate));
+      return allRides;
+    } catch (e) {
+      debugPrint('Failed to get rides by creators: $e');
+      return [];
+    }
+  }
+
+  Ride _rideFromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Ride(
+      id: doc.id,
+      name: data['rideName'] ?? '',
+      description: data['description'] ?? '',
+      createdBy: data['createdBy'] ?? '',
+      maxParticipants: data['maxParticipants'] ?? 10,
+      currentParticipants: data['currentParticipants'] ?? 1,
+      startDate: (data['startDate'] as Timestamp).toDate(),
+      status: data['status'] ?? 'UPCOMING',
+      isPublic: data['isPublic'] ?? true,
+      fromLocation: data['fromLocation']['name'] ?? '',
+      fromLat: (data['fromLocation']['lat'] as num?)?.toDouble() ?? 0.0,
+      fromLng: (data['fromLocation']['lng'] as num?)?.toDouble() ?? 0.0,
+      toLocation: data['toLocation']['name'] ?? '',
+      toLat: (data['toLocation']['lat'] as num?)?.toDouble() ?? 0.0,
+      toLng: (data['toLocation']['lng'] as num?)?.toDouble() ?? 0.0,
+      dateTime: (data['startDate'] as Timestamp).toDate(),
+      validDistanceKm: (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
+      difficulty: data['difficulty'] ?? 'Easy',
+      participantIds: [],
+      participantGenders: [],
+    );
+  }
+}

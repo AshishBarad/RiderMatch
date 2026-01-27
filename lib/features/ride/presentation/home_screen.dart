@@ -1,0 +1,209 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'ride_providers.dart';
+import 'widgets/ride_card.dart';
+import '../../../core/services/permission_service.dart';
+import '../../../core/presentation/widgets/permission_rationale_dialog.dart';
+import '../../profile/presentation/profile_providers.dart';
+import '../../auth/domain/entities/user.dart';
+import '../../../core/services/notification_service.dart';
+import '../../auth/presentation/auth_providers.dart';
+import '../../../../core/utils/error_handler.dart'; // Added import
+
+class HomeScreen extends ConsumerStatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndRequestPermissions();
+    });
+  }
+
+  Future<void> _checkAndRequestPermissions() async {
+    final permissionService = PermissionService();
+    bool granted = await permissionService.checkPermissions();
+
+    if (!granted) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => PermissionRationaleDialog(
+            onContinue: () async {
+              Navigator.of(context).pop(); // Close Rationale
+              await permissionService.requestPermissions();
+            },
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ridesState = ref.watch(rideControllerProvider);
+    final rideController = ref.read(rideControllerProvider.notifier);
+
+    // Fetch current user gender for conditional filter visibility
+    final authState = ref.watch(authControllerProvider);
+    final currentUserId = authState.value?.id ?? '';
+
+    // Only fetch profile if we have a user ID
+    final userProfileAsync = currentUserId.isNotEmpty
+        ? ref.watch(profileDataSourceProvider).getUserProfile(currentUserId)
+        : Future.value(null);
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Manual refresh triggers fetching nearby rides again
+          await ref.read(rideControllerProvider.notifier).getNearbyRides();
+        },
+        child: CustomScrollView(
+          physics:
+              const AlwaysScrollableScrollPhysics(), // Ensure scroll even if list is short
+          slivers: [
+            SliverAppBar(
+              floating: true,
+              pinned: true,
+              title: const Text('Discover Rides'),
+              actions: [
+                Consumer(
+                  builder: (context, ref, child) {
+                    final notificationState = ref.watch(
+                      notificationServiceProvider,
+                    );
+                    final unreadCount = notificationState.unreadCount;
+
+                    return IconButton(
+                      onPressed: () {
+                        context.push('/notification-center');
+                      },
+                      icon: Badge(
+                        label: unreadCount > 0 ? Text('$unreadCount') : null,
+                        isLabelVisible: unreadCount > 0,
+                        backgroundColor: Colors.red,
+                        textColor: Colors.white,
+                        child: const Icon(Icons.notifications_outlined),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(120),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
+                      child: TextField(
+                        readOnly: true,
+                        onTap: () {
+                          context.push('/user-search');
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Find riders...',
+                          prefixIcon: const Icon(Icons.search),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    FutureBuilder<User?>(
+                      future: userProfileAsync,
+                      builder: (context, snapshot) {
+                        final user = snapshot.data;
+                        if (user?.gender == 'Female') {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.female,
+                                  size: 20,
+                                  color: Colors.pink,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Female Only Rides',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                const Spacer(),
+                                Switch(
+                                  value: rideController.isFemaleFilterActive,
+                                  onChanged: (v) =>
+                                      rideController.toggleFemaleFilter(v),
+                                  activeThumbColor: Colors.pink,
+                                  activeTrackColor: Colors.pink.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            ridesState.when(
+              data: (rides) => rides.isEmpty
+                  ? const SliverFillRemaining(
+                      child: Center(child: Text('No rides found nearby.')),
+                    )
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final ride = rides[index];
+                        return RideCard(
+                          ride: ride,
+                          onTap: () {
+                            context.push('/ride-detail', extra: ride);
+                          },
+                        );
+                      }, childCount: rides.length),
+                    ),
+              loading: () => const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, stack) => SliverFillRemaining(
+                child: Center(
+                  child: Text('Error: ${ErrorHandler.getErrorMessage(error)}'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          context.push('/create-ride');
+        },
+        label: const Text('New Ride'),
+        icon: const Icon(Icons.add),
+      ),
+    );
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1054766309339",
+    "project_id": "ridermatch-ee4fe",
+    "storage_bucket": "ridermatch-ee4fe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1054766309339:android:af391a2cf9793afa5811fe",
+        "android_client_info": {
+          "package_name": "com.example.rider_match"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1054766309339-je8b6f0th4bflp4g53qmp1hg3c3hn7v5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlWtfMHB9TIvsyqH9ZEJQiR4Hn5FKzGXI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1054766309339-je8b6f0th4bflp4g53qmp1hg3c3hn7v5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1054766309339-3pkg87t3b6ct67al0n944k6r92jqh3a5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.riderMatch"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

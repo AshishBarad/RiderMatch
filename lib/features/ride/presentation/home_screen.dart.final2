@@ -1,0 +1,419 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'ride_providers.dart';
+import 'widgets/ride_card.dart';
+import '../../../core/services/permission_service.dart';
+import '../../../core/presentation/widgets/permission_rationale_dialog.dart';
+import '../../profile/presentation/profile_providers.dart';
+import '../../auth/domain/entities/user.dart';
+import '../../../core/services/notification_service.dart';
+import '../../auth/presentation/auth_providers.dart';
+import '../domain/entities/ride.dart';
+
+class HomeScreen extends ConsumerStatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndRequestPermissions();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkAndRequestPermissions() async {
+    final permissionService = PermissionService();
+    bool granted = await permissionService.checkPermissions();
+
+    if (!granted) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => PermissionRationaleDialog(
+            onContinue: () async {
+              Navigator.of(context).pop();
+              await permissionService.requestPermissions();
+            },
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSearchBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SearchBottomSheet(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ridesState = ref.watch(rideControllerProvider);
+    final rideController = ref.read(rideDataSourceProvider);
+
+    final authState = ref.watch(authControllerProvider);
+    final currentUserId = authState.value?.id ?? '';
+
+    final userProfileAsync = currentUserId.isNotEmpty
+        ? ref.watch(profileDataSourceProvider).getUserProfile(currentUserId)
+        : Future.value(null);
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(rideControllerProvider.notifier).getNearbyRides();
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              floating: true,
+              pinned: true,
+              title: const Text('Discover Rides'),
+              actions: [
+                Consumer(
+                  builder: (context, ref, child) {
+                    final notificationState = ref.watch(
+                      notificationServiceProvider,
+                    );
+                    final unreadCount = notificationState.unreadCount;
+
+                    return IconButton(
+                      onPressed: () {
+                        context.push('/notification-center');
+                      },
+                      icon: Badge(
+                        label: unreadCount > 0 ? Text('$unreadCount') : null,
+                        isLabelVisible: unreadCount > 0,
+                        child: const Icon(Icons.notifications_outlined),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(100),
+                child: Column(
+                  children: [
+                    TabBar(
+                      controller: _tabController,
+                      tabs: const [
+                        Tab(text: 'Nearby'),
+                        Tab(text: 'Following'),
+                      ],
+                    ),
+                    FutureBuilder<User?>(
+                      future: userProfileAsync,
+                      builder: (context, snapshot) {
+                        final user = snapshot.data;
+                        if (user?.gender == 'Female') {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 8.0,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.female,
+                                  size: 20,
+                                  color: Colors.pink,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Female Only Rides',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                const Spacer(),
+                                Switch(
+                                  value: rideController.isFemaleFilterActive,
+                                  onChanged: (value) {
+                                    rideController.toggleFemaleFilter(value);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverFillRemaining(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Nearby Rides Tab
+                  _buildNearbyRides(ridesState),
+                  // Following Rides Tab
+                  _buildFollowingRides(currentUserId),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showSearchBottomSheet,
+        child: const Icon(Icons.search),
+      ),
+    );
+  }
+
+  Widget _buildNearbyRides(AsyncValue<List<Ride>> ridesState) {
+    return ridesState.when(
+      data: (rides) {
+        if (rides.isEmpty) {
+          return const Center(child: Text('No rides available nearby'));
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: rides.length,
+          itemBuilder: (context, index) {
+            return RideCard(
+              ride: rides[index],
+              onTap: () {
+                context.push('/ride-detail/${rides[index].id}');
+              },
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) =>
+          Center(child: Text('Error loading rides: $error')),
+    );
+  }
+
+  Widget _buildFollowingRides(String currentUserId) {
+    if (currentUserId.isEmpty) {
+      return const Center(
+        child: Text('Please log in to see rides from people you follow'),
+      );
+    }
+
+    return FutureBuilder<User?>(
+      future: ref.read(profileDataSourceProvider).getUserProfile(currentUserId),
+      builder: (context, userSnapshot) {
+        if (!userSnapshot.hasData || userSnapshot.data == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final currentUser = userSnapshot.data!;
+        final followingIds = currentUser.following;
+
+        if (followingIds.isEmpty) {
+          return const Center(
+            child: Text('Follow riders to see their rides here!'),
+          );
+        }
+
+        return FutureBuilder<List<Ride>>(
+          future: ref
+              .read(rideDataSourceProvider)
+              .getRidesByCreators(followingIds),
+          builder: (context, ridesSnapshot) {
+            if (ridesSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (ridesSnapshot.hasError) {
+              return Center(child: Text('Error: ${ridesSnapshot.error}'));
+            }
+
+            final rides = ridesSnapshot.data ?? [];
+            if (rides.isEmpty) {
+              return const Center(
+                child: Text('No rides from people you follow'),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: rides.length,
+              itemBuilder: (context, index) {
+                return RideCard(
+                  ride: rides[index],
+                  onTap: () {
+                    context.push('/ride-detail/${rides[index].id}');
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SearchBottomSheet extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_SearchBottomSheet> createState() => _SearchBottomSheetState();
+}
+
+class _SearchBottomSheetState extends ConsumerState<_SearchBottomSheet> {
+  final _searchController = TextEditingController();
+  List<User> _results = [];
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _search(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _results = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final searchUseCase = ref.read(searchUsersUseCaseProvider);
+      final results = await searchUseCase(query);
+      if (mounted) {
+        setState(() {
+          _results = results;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Search field
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Search by name, username, or bike...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _search('');
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    // Debounce search
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      if (_searchController.text == value) {
+                        _search(value);
+                      }
+                    });
+                  },
+                ),
+              ),
+              // Results
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _results.isEmpty
+                    ? Center(
+                        child: Text(
+                          _searchController.text.isEmpty
+                              ? 'Start typing to search...'
+                              : 'No riders found',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: _results.length,
+                        itemBuilder: (context, index) {
+                          final user = _results[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: user.photoUrl != null
+                                  ? NetworkImage(user.photoUrl!)
+                                  : null,
+                              child: user.photoUrl == null
+                                  ? const Icon(Icons.person)
+                                  : null,
+                            ),
+                            title: Text(user.fullName ?? 'User ${user.id}'),
+                            subtitle: Text(
+                              user.username != null
+                                  ? '@${user.username} • ${user.vehicleModel ?? ""}'
+                                  : user.vehicleModel ?? '',
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.pop(context);
+                              context.push('/user-profile', extra: user);
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

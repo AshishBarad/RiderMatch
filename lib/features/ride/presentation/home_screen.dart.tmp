@@ -1,0 +1,9 @@
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          context.push('/create-ride');
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Create Ride'),
+      ),
+    );
+  }
