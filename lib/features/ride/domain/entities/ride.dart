@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'ride_stop.dart';
 
 part 'ride.freezed.dart';
 part 'ride.g.dart';
@@ -26,6 +27,7 @@ class Ride with _$Ride {
     @Default([]) List<String> participantIds,
     @Default([]) List<String> invitedUserIds,
     @Default([]) List<String> participantGenders,
+    @Default([]) List<RideStop> stops,
   }) = _Ride;
 
   factory Ride.fromJson(Map<String, dynamic> json) => _$RideFromJson(json);

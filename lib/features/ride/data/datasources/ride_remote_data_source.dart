@@ -1,5 +1,8 @@
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/ride.dart';
+import '../../domain/entities/ride_stop.dart';
 
 abstract class RideRemoteDataSource {
   Future<List<Ride>> getNearbyRides(
@@ -35,20 +38,42 @@ class RideRemoteDataSourceImpl implements RideRemoteDataSource {
     bool femaleOnly,
   ) async {
     try {
-      // Note: For production, use geofirestore package for radius queries
-      // For now, fetch upcoming public rides
+      // 1. Calculate bounding box for latitude (approximate filter)
+      // 1 degree latitude is approx 111.32 km
+
       var query = _firestore
           .collection('rides')
           .where('status', isEqualTo: 'UPCOMING')
-          .where('isPublic', isEqualTo: true)
-          .orderBy('startDate')
-          .limit(50);
+          .where('isPublic', isEqualTo: true);
 
-      final snapshot = await query.get();
-      return snapshot.docs.map((doc) => _rideFromFirestore(doc)).toList();
+      if (femaleOnly) {
+        query = query.where('creatorGender', isEqualTo: 'Female');
+      }
+
+      final snapshot = await query.limit(100).get();
+
+      // 2. Filter by longitude and precise distance client-side
+      // (Firestore only supports inequality on one field)
+      final allRides = snapshot.docs
+          .map((doc) => _rideFromFirestore(doc))
+          .toList();
+
+      return allRides.where((ride) {
+        final distance = _getDistance(lat, lng, ride.fromLat, ride.fromLng);
+        return distance <= radiusKm;
+      }).toList();
     } catch (e) {
       throw Exception('Failed to get nearby rides: $e');
     }
+  }
+
+  double _getDistance(double lat1, double lng1, double lat2, double lng2) {
+    const double p = 0.017453292519943295; // Math.PI / 180
+    final double a =
+        0.5 -
+        cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lng2 - lng1) * p)) / 2;
+    return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
   }
 
   @override
@@ -77,7 +102,7 @@ class RideRemoteDataSourceImpl implements RideRemoteDataSource {
 
         return ride.copyWith(participantIds: participantIds);
       } catch (e) {
-        print('Error fetching participants: $e');
+        debugPrint('Error fetching participants: $e');
         return ride; // Return ride without participants if fetch fails
       }
     } catch (e) {
@@ -109,10 +134,13 @@ class RideRemoteDataSourceImpl implements RideRemoteDataSource {
         'startDate': Timestamp.fromDate(ride.dateTime),
         'difficulty': ride.difficulty,
         'isPublic': true,
+        'isPrivate': ride.isPrivate,
+        'encodedPolyline': ride.encodedPolyline,
         'maxParticipants': 10, // Default value
         'createdBy': ride.creatorId,
         'status': 'UPCOMING',
         'currentParticipants': 1, // Start with 1 (the creator)
+        'stops': ride.stops.map((s) => s.toJson()).toList(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -167,6 +195,9 @@ class RideRemoteDataSourceImpl implements RideRemoteDataSource {
         'distanceKm': ride.validDistanceKm,
         'startDate': Timestamp.fromDate(ride.dateTime),
         'difficulty': ride.difficulty,
+        'isPrivate': ride.isPrivate,
+        'encodedPolyline': ride.encodedPolyline,
+        'stops': ride.stops.map((s) => s.toJson()).toList(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -253,15 +284,24 @@ class RideRemoteDataSourceImpl implements RideRemoteDataSource {
   @override
   Future<void> inviteUser(String rideId, String userId) async {
     try {
-      // Create an invitation document
-      await _firestore.collection('ride_invitations').add({
+      final batch = _firestore.batch();
+
+      // 1. Create an invitation document
+      final inviteRef = _firestore.collection('ride_invitations').doc();
+      batch.set(inviteRef, {
         'rideId': rideId,
         'invitedUserId': userId,
         'status': 'PENDING',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Send notification via Cloud Function
+      // 2. Update the ride document's invitedUserIds array
+      final rideRef = _firestore.collection('rides').doc(rideId);
+      batch.update(rideRef, {
+        'invitedUserIds': FieldValue.arrayUnion([userId]),
+      });
+
+      await batch.commit();
     } catch (e) {
       throw Exception('Failed to invite user: $e');
     }
@@ -333,7 +373,8 @@ class RideRemoteDataSourceImpl implements RideRemoteDataSource {
     return Ride(
       id: doc.id,
       creatorId: data['createdBy'] ?? '',
-      creatorGender: 'Male', // TODO: Fetch from user profile
+      creatorGender:
+          data['creatorGender'] ?? 'Male', // TODO: Fetch from user profile
       title: data['rideName'] ?? '',
       description: data['description'] ?? '',
       fromLocation: data['fromLocation']['name'] ?? '',
@@ -345,8 +386,20 @@ class RideRemoteDataSourceImpl implements RideRemoteDataSource {
       dateTime: (data['startDate'] as Timestamp).toDate(),
       validDistanceKm: (data['distanceKm'] as num?)?.toDouble() ?? 0.0,
       difficulty: data['difficulty'] ?? 'Easy',
-      participantIds: [], // Fetch separately if needed
+      encodedPolyline: data['encodedPolyline'] ?? '',
+      isPrivate: data['isPrivate'] ?? false,
+      participantIds:
+          (data['participantIds'] as List?)?.map((e) => e as String).toList() ??
+          [],
+      invitedUserIds:
+          (data['invitedUserIds'] as List?)?.map((e) => e as String).toList() ??
+          [],
       participantGenders: [], // Fetch separately if needed
+      stops:
+          (data['stops'] as List?)
+              ?.map((e) => RideStop.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 }

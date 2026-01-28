@@ -11,6 +11,7 @@ import '../data/datasources/places_remote_data_source.dart';
 import '../domain/repositories/directions_repository.dart';
 import '../data/datasources/directions_remote_data_source.dart';
 import '../domain/usecases/get_ride_route_usecase.dart';
+import '../domain/usecases/reverse_geocode_usecase.dart';
 import '../domain/usecases/update_ride_usecase.dart';
 import '../domain/usecases/participant_management_usecases.dart';
 import '../domain/usecases/get_user_rides_usecases.dart';
@@ -108,6 +109,10 @@ final getRideRouteUseCaseProvider = Provider<GetRideRouteUseCase>((ref) {
   return GetRideRouteUseCase(ref.watch(directionsRepositoryProvider));
 });
 
+final reverseGeocodeUseCaseProvider = Provider<ReverseGeocodeUseCase>((ref) {
+  return ReverseGeocodeUseCase(ref.watch(directionsRepositoryProvider));
+});
+
 final rideControllerProvider =
     StateNotifierProvider<RideController, AsyncValue<List<Ride>>>((ref) {
       return RideController(
@@ -125,10 +130,27 @@ final rideControllerProvider =
       );
     });
 
-// CHANGED: Now a FutureProvider that fetches fresh data
+final currentLocationNameProvider = StateProvider<String>((ref) => 'Near You');
+
 final rideDetailProvider = FutureProvider.family.autoDispose<Ride?, String>((
   ref,
   id,
 ) {
   return ref.watch(getRideByIdUseCaseProvider)(id);
+});
+
+final createdRidesProvider = FutureProvider.autoDispose<List<Ride>>((
+  ref,
+) async {
+  final authState = ref.watch(authControllerProvider);
+  final userId = authState.value?.id;
+  if (userId == null) return [];
+  return ref.watch(getCreatedRidesUseCaseProvider)(userId);
+});
+
+final joinedRidesProvider = FutureProvider.autoDispose<List<Ride>>((ref) async {
+  final authState = ref.watch(authControllerProvider);
+  final userId = authState.value?.id;
+  if (userId == null) return [];
+  return ref.watch(getJoinedRidesUseCaseProvider)(userId);
 });

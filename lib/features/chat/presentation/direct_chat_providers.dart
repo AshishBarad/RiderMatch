@@ -3,7 +3,6 @@ import '../data/datasources/direct_chat_remote_data_source.dart';
 import '../data/repositories/direct_chat_repository_impl.dart';
 import '../domain/repositories/direct_chat_repository.dart';
 import '../domain/usecases/direct_chat_usecases.dart';
-import '../../profile/presentation/profile_providers.dart';
 
 // Data Source
 final directChatDataSourceProvider = Provider<DirectChatRemoteDataSource>((
@@ -70,4 +69,19 @@ final getExistingRequestUseCaseProvider = Provider<GetExistingRequestUseCase>((
   ref,
 ) {
   return GetExistingRequestUseCase(ref.watch(directChatRepositoryProvider));
+});
+
+// Data Providers
+final myChatsProvider = FutureProvider.family<List<dynamic>, String>((
+  ref,
+  userId,
+) {
+  return ref.watch(getMyChatsUseCaseProvider)(userId);
+});
+
+final chatRequestsProvider = FutureProvider.family<List<dynamic>, String>((
+  ref,
+  userId,
+) {
+  return ref.watch(getChatRequestsUseCaseProvider)(userId);
 });

@@ -4,6 +4,7 @@ import '../../../auth/domain/entities/user.dart';
 
 abstract class ProfileRemoteDataSource {
   Future<User?> getUserProfile(String userId);
+  Stream<User?> watchUserProfile(String userId);
   Future<void> updateUserProfile(User user);
   Future<void> followUser(String currentUserId, String targetUserId);
   Future<void> unfollowUser(String currentUserId, String targetUserId);
@@ -38,6 +39,17 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     } catch (e) {
       throw Exception('Failed to get user profile: $e');
     }
+  }
+
+  @override
+  Stream<User?> watchUserProfile(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .map(
+          (doc) => doc.exists ? _userFromFirestore(userId, doc.data()!) : null,
+        );
   }
 
   @override

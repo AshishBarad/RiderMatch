@@ -13,6 +13,7 @@ class User with _$User {
     String? email,
     String? fullName,
     String? photoUrl,
+    String? coverImageUrl,
     int? age,
     String? gender,
     String? vehicleModel,
@@ -27,6 +28,8 @@ class User with _$User {
     @Default([]) List<String> following,
     @Default([]) List<String> blockedUsers,
     @Default(50.0) double rideDistancePreference,
+    double? lastKnownLat,
+    double? lastKnownLng,
   }) = _User;
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);

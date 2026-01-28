@@ -38,7 +38,6 @@ final authControllerProvider =
       return AuthController(
         ref.watch(loginUseCaseProvider),
         ref.watch(verifyOtpUseCaseProvider),
-        ref.watch(getCurrentUserUseCaseProvider),
         ref.watch(logoutUseCaseProvider),
         ref.watch(authRepositoryProvider),
       );

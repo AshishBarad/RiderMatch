@@ -7,6 +7,7 @@ abstract class AuthRemoteDataSource {
   Future<void> loginWithPhone(String phoneNumber);
   Future<domain.User> verifyOtp(String verificationId, String otp);
   Future<domain.User?> getCurrentUser();
+  Stream<domain.User?> watchCurrentUser();
   Future<void> logout();
   String? getVerificationId();
 }
@@ -299,6 +300,65 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e) {
       return null;
     }
+  }
+
+  @override
+  Stream<domain.User?> watchCurrentUser() {
+    return _firebaseAuth.authStateChanges().asyncExpand((firebaseUser) {
+      if (firebaseUser == null) {
+        return Stream.value(_mockUser);
+      }
+
+      // Listen to the document in real-time
+      return _firestore
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .snapshots()
+          .map((snapshot) {
+            if (!snapshot.exists) return null;
+            final userData = snapshot.data()!;
+            return _userFromFirestore(
+              firebaseUser.uid,
+              firebaseUser.phoneNumber ?? '',
+              userData,
+            );
+          });
+    });
+  }
+
+  domain.User _userFromFirestore(
+    String uid,
+    String phoneNumber,
+    Map<String, dynamic> data,
+  ) {
+    final hasFullName =
+        data['fullName'] != null && (data['fullName'] as String).isNotEmpty;
+
+    return domain.User(
+      id: uid,
+      phoneNumber: phoneNumber,
+      fullName: data['fullName'],
+      username: data['username'],
+      photoUrl: data['photoUrl'],
+      coverImageUrl: data['coverImageUrl'],
+      age: data['age'],
+      gender: data['gender'],
+      vehicleManufacturer: data['vehicleManufacturer'],
+      vehicleModel: data['vehicleModel'],
+      vehicleRegNo: data['vehicleRegNo'],
+      bloodGroup: data['bloodGroup'],
+      emergencyContactName: data['emergencyContactName'],
+      emergencyContactRelationship: data['emergencyContactRelationship'],
+      emergencyContactNumber: data['emergencyContactNumber'],
+      ridingPreferences: data['ridingPreferences'] != null
+          ? List<String>.from(data['ridingPreferences'] as List)
+          : [],
+      rideDistancePreference:
+          (data['rideDistancePreference'] as num?)?.toDouble() ?? 50.0,
+      isProfileComplete: hasFullName,
+      lastKnownLat: (data['lastKnownLat'] as num?)?.toDouble(),
+      lastKnownLng: (data['lastKnownLng'] as num?)?.toDouble(),
+    );
   }
 
   @override

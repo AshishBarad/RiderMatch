@@ -13,12 +13,12 @@ import 'controller/profile_controller.dart';
 // ... (existing imports)
 
 // Reactive User Profile Provider
-final userProfileProvider = FutureProvider.family<domain.User?, String>((
+final userProfileProvider = StreamProvider.family<domain.User?, String>((
   ref,
   userId,
 ) {
-  final getUserProfile = ref.watch(getUserProfileUseCaseProvider);
-  return getUserProfile(userId);
+  final repository = ref.watch(profileRepositoryProvider);
+  return repository.watchUserProfile(userId);
 });
 
 // Data Sources

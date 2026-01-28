@@ -14,6 +14,7 @@ _$UserImpl _$$UserImplFromJson(Map<String, dynamic> json) => _$UserImpl(
   email: json['email'] as String?,
   fullName: json['fullName'] as String?,
   photoUrl: json['photoUrl'] as String?,
+  coverImageUrl: json['coverImageUrl'] as String?,
   age: (json['age'] as num?)?.toInt(),
   gender: json['gender'] as String?,
   vehicleModel: json['vehicleModel'] as String?,
@@ -41,6 +42,8 @@ _$UserImpl _$$UserImplFromJson(Map<String, dynamic> json) => _$UserImpl(
       const [],
   rideDistancePreference:
       (json['rideDistancePreference'] as num?)?.toDouble() ?? 50.0,
+  lastKnownLat: (json['lastKnownLat'] as num?)?.toDouble(),
+  lastKnownLng: (json['lastKnownLng'] as num?)?.toDouble(),
 );
 
 Map<String, dynamic> _$$UserImplToJson(_$UserImpl instance) =>
@@ -52,6 +55,7 @@ Map<String, dynamic> _$$UserImplToJson(_$UserImpl instance) =>
       'email': instance.email,
       'fullName': instance.fullName,
       'photoUrl': instance.photoUrl,
+      'coverImageUrl': instance.coverImageUrl,
       'age': instance.age,
       'gender': instance.gender,
       'vehicleModel': instance.vehicleModel,
@@ -66,4 +70,6 @@ Map<String, dynamic> _$$UserImplToJson(_$UserImpl instance) =>
       'following': instance.following,
       'blockedUsers': instance.blockedUsers,
       'rideDistancePreference': instance.rideDistancePreference,
+      'lastKnownLat': instance.lastKnownLat,
+      'lastKnownLng': instance.lastKnownLng,
     };

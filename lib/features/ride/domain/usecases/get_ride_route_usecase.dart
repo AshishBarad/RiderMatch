@@ -7,7 +7,11 @@ class GetRideRouteUseCase {
 
   GetRideRouteUseCase(this.repository);
 
-  Future<RouteInfo?> call(LatLng origin, LatLng destination) {
-    return repository.getDirections(origin, destination);
+  Future<RouteInfo?> call(
+    LatLng origin,
+    LatLng destination, {
+    List<LatLng>? waypoints,
+  }) {
+    return repository.getDirections(origin, destination, waypoints: waypoints);
   }
 }

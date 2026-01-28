@@ -20,7 +20,12 @@ class RouteInfo {
 }
 
 abstract class DirectionsRemoteDataSource {
-  Future<RouteInfo?> getDirections(LatLng origin, LatLng destination);
+  Future<RouteInfo?> getDirections(
+    LatLng origin,
+    LatLng destination, {
+    List<LatLng>? waypoints,
+  });
+  Future<String?> reverseGeocode(LatLng location);
 }
 
 class DirectionsRemoteDataSourceImpl implements DirectionsRemoteDataSource {
@@ -32,11 +37,21 @@ class DirectionsRemoteDataSourceImpl implements DirectionsRemoteDataSource {
   String get _apiKey => dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
 
   @override
-  Future<RouteInfo?> getDirections(LatLng origin, LatLng destination) async {
+  Future<RouteInfo?> getDirections(
+    LatLng origin,
+    LatLng destination, {
+    List<LatLng>? waypoints,
+  }) async {
+    final waypointsParam = (waypoints == null || waypoints.isEmpty)
+        ? ''
+        : '&waypoints=${waypoints.map((w) => '${w.latitude},${w.longitude}').join('|')}';
+
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/directions/json?'
       'origin=${origin.latitude},${origin.longitude}&'
-      'destination=${destination.latitude},${destination.longitude}&'
+      'destination=${destination.latitude},${destination.longitude}'
+      '$waypointsParam&'
+      'mode=two_wheeler&'
       'avoid=highways&'
       'key=$_apiKey',
     );
@@ -76,6 +91,29 @@ class DirectionsRemoteDataSourceImpl implements DirectionsRemoteDataSource {
             ),
           ),
         );
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<String?> reverseGeocode(LatLng location) async {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json?'
+      'latlng=${location.latitude},${location.longitude}&'
+      'key=$_apiKey',
+    );
+
+    try {
+      final response = await client.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['results'] as List;
+        if (results.isNotEmpty) {
+          return results[0]['formatted_address'];
+        }
       }
       return null;
     } catch (e) {

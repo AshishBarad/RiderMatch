@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/verify_otp_usecase.dart';
-import '../../domain/usecases/get_current_user_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -10,14 +10,13 @@ import '../../domain/repositories/auth_repository.dart';
 class AuthController extends StateNotifier<AsyncValue<User?>> {
   final LoginUseCase _loginUseCase;
   final VerifyOtpUseCase _verifyOtpUseCase;
-  final GetCurrentUserUseCase _getCurrentUserUseCase;
   final LogoutUseCase _logoutUseCase;
   final AuthRepository _authRepository;
+  StreamSubscription<User?>? _userSubscription;
 
   AuthController(
     this._loginUseCase,
     this._verifyOtpUseCase,
-    this._getCurrentUserUseCase,
     this._logoutUseCase,
     this._authRepository,
   ) : super(const AsyncValue.loading()) {
@@ -25,7 +24,24 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> _init() async {
-    state = await AsyncValue.guard(() => _getCurrentUserUseCase());
+    // Cancel existing subscription if any
+    await _userSubscription?.cancel();
+
+    // Listen to real-time user updates
+    _userSubscription = _authRepository.watchCurrentUser().listen(
+      (user) {
+        state = AsyncValue.data(user);
+      },
+      onError: (error, st) {
+        state = AsyncValue.error(error, st);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _userSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> logout() async {

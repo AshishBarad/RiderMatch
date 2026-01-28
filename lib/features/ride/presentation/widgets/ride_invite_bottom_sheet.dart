@@ -7,6 +7,7 @@ import '../../../profile/presentation/profile_providers.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/error_handler.dart';
+import '../../../../core/presentation/theme/app_colors.dart';
 
 class RideInviteBottomSheet extends ConsumerStatefulWidget {
   final Ride ride;
@@ -23,12 +24,15 @@ class _RideInviteBottomSheetState extends ConsumerState<RideInviteBottomSheet> {
   final GlobalKey _shareButtonKey = GlobalKey();
   List<User> _searchResults = [];
   bool _isLoading = false;
+  final Map<String, bool> _invitingUserIds = {};
 
   Future<void> _onSearch(String query) async {
     if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+        });
+      }
       return;
     }
 
@@ -49,9 +53,11 @@ class _RideInviteBottomSheetState extends ConsumerState<RideInviteBottomSheet> {
           )
           .toList();
 
-      setState(() {
-        _searchResults = filteredResults;
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults = filteredResults;
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -63,31 +69,59 @@ class _RideInviteBottomSheetState extends ConsumerState<RideInviteBottomSheet> {
         );
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _inviteUser(User user) async {
-    // Call the controller to persist invitation
-    await ref
-        .read(rideControllerProvider.notifier)
-        .inviteUser(widget.ride.id, user.id);
+    setState(() {
+      _invitingUserIds[user.id] = true;
+    });
 
-    // Simulate Notification
-    ref
-        .read(notificationServiceProvider.notifier)
-        .showNotification(
-          title: 'Ride Invitation',
-          body: 'You have been invited to join "${widget.ride.title}"',
-          rideId: widget.ride.id,
+    try {
+      // Call the controller to persist invitation
+      await ref
+          .read(rideControllerProvider.notifier)
+          .inviteUser(widget.ride.id, user.id);
+
+      // Simulate Notification
+      ref
+          .read(notificationServiceProvider.notifier)
+          .showNotification(
+            title: 'Ride Invitation',
+            body: 'You have been invited to join "${widget.ride.title}"',
+            rideId: widget.ride.id,
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invitation sent to ${user.fullName}'),
+            backgroundColor: Colors.green,
+          ),
         );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invitation sent to ${user.fullName}')),
-      );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to invite user: ${ErrorHandler.getErrorMessage(e)}',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _invitingUserIds.remove(user.id);
+        });
+      }
     }
   }
 
@@ -204,6 +238,7 @@ class _RideInviteBottomSheetState extends ConsumerState<RideInviteBottomSheet> {
                     separatorBuilder: (context, index) => const Divider(),
                     itemBuilder: (context, index) {
                       final user = _searchResults[index];
+                      final isInviting = _invitingUserIds[user.id] ?? false;
                       final isInvited = currentRide.invitedUserIds.contains(
                         user.id,
                       );
@@ -219,18 +254,34 @@ class _RideInviteBottomSheetState extends ConsumerState<RideInviteBottomSheet> {
                         ),
                         title: Text(user.fullName ?? 'Unknown User'),
                         subtitle: Text(user.vehicleModel ?? 'Rider'),
-                        trailing: ElevatedButton(
-                          onPressed: isInvited ? null : () => _inviteUser(user),
-                          style: ElevatedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            backgroundColor: isInvited
-                                ? Colors.grey[200]
-                                : null,
-                            foregroundColor: isInvited
-                                ? Colors.grey[600]
-                                : null,
+                        trailing: SizedBox(
+                          width: 100,
+                          child: ElevatedButton(
+                            onPressed: (isInvited || isInviting)
+                                ? null
+                                : () => _inviteUser(user),
+                            style: ElevatedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor: isInvited
+                                  ? Colors.grey[200]
+                                  : null,
+                              foregroundColor: isInvited
+                                  ? Colors.grey[600]
+                                  : null,
+                            ),
+                            child: isInviting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.primaryAqua,
+                                      ),
+                                    ),
+                                  )
+                                : Text(isInvited ? 'Invited' : 'Invite'),
                           ),
-                          child: Text(isInvited ? 'Invite Sent' : 'Invite'),
                         ),
                       );
                     },

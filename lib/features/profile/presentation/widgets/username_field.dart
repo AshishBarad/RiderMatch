@@ -6,11 +6,13 @@ import '../profile_providers.dart';
 class UsernameField extends ConsumerStatefulWidget {
   final TextEditingController controller;
   final String? initialUsername;
+  final bool enabled;
 
   const UsernameField({
     super.key,
     required this.controller,
     this.initialUsername,
+    this.enabled = true,
   });
 
   @override
@@ -144,14 +146,13 @@ class _UsernameFieldState extends ConsumerState<UsernameField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: widget.controller,
+      enabled: widget.enabled,
       decoration: InputDecoration(
-        labelText: 'Username',
-        hintText: 'your_username',
-        border: const OutlineInputBorder(),
+        hintText: 'Username',
         helperText: 'Lowercase letters, numbers, and underscore (max 15)',
         helperMaxLines: 2,
         errorText: _errorMessage,
-        suffixIcon: _buildSuffixIcon(),
+        suffixIcon: widget.enabled ? _buildSuffixIcon() : null,
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {

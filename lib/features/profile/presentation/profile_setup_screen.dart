@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../auth/domain/entities/user.dart';
 import 'profile_providers.dart';
 import '../../auth/presentation/auth_providers.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/config/bike_config.dart';
 import 'widgets/username_field.dart';
-import '../../../core/utils/error_handler.dart';
+import '../../../core/presentation/theme/app_colors.dart';
+import '../../../core/presentation/theme/app_typography.dart';
+import '../../../core/presentation/widgets/gradient_button.dart';
+import '../../../core/presentation/widgets/animated_chip.dart';
+import '../../../core/presentation/widgets/profile_avatar.dart';
+import '../../../core/presentation/widgets/animated_dropdown.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  final User? userToEdit; // Added for edit mode
+  final User? userToEdit;
   const ProfileSetupScreen({super.key, this.userToEdit});
 
   @override
@@ -22,23 +27,23 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   late TextEditingController _nameController;
   late TextEditingController _usernameController;
   late TextEditingController _ageController;
-  late TextEditingController _bikeModelController;
   late TextEditingController _vehicleRegController;
   late TextEditingController _emergencyNameController;
-  late TextEditingController _emergencyRelationController;
   late TextEditingController _emergencyPhoneController;
 
   String? _selectedGender;
   String? _selectedManufacturer;
   String? _selectedModel;
   String? _selectedBloodGroup;
+  String? _emergencyRelation;
 
   List<String> _selectedPreferences = [];
-  String? _photoUrl; // To store uploaded photo URL
+  String? _photoUrl;
+  String? _coverUrl;
   double _selectedRideDistance = 50.0;
-  bool _isLoadingProfile = false;
+  int _currentStep = 0;
 
-  final List<String> _miningPreferencesOptions = [
+  final List<String> _ridingPreferencesOptions = [
     'Fast Riding',
     'Easy Going',
     'Touring',
@@ -51,61 +56,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfileData();
-  }
-
-  Future<void> _loadProfileData() async {
-    // If we have a user ID but incomplete data, fetch full profile
-    if (widget.userToEdit != null && widget.userToEdit!.fullName == null) {
-      setState(() {
-        _isLoadingProfile = true;
-      });
-
-      try {
-        final fullProfile = await ref.read(getUserProfileUseCaseProvider)(
-          widget.userToEdit!.id,
-        );
-
-        if (fullProfile != null && mounted) {
-          _initializeControllers(fullProfile);
-        } else {
-          _initializeControllers(widget.userToEdit);
-        }
-      } catch (e) {
-        debugPrint('Error loading profile: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${ErrorHandler.getErrorMessage(e)}'),
-            ),
-          );
-        }
-        _initializeControllers(widget.userToEdit);
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoadingProfile = false;
-          });
-        }
-      }
-    } else {
-      _initializeControllers(widget.userToEdit);
-    }
+    _initializeControllers(widget.userToEdit);
   }
 
   void _initializeControllers(User? user) {
     _nameController = TextEditingController(text: user?.fullName);
     _usernameController = TextEditingController(text: user?.username);
-    _ageController = TextEditingController(
-      text: user?.age != null ? user!.age.toString() : '',
-    );
-    _bikeModelController = TextEditingController(text: user?.vehicleModel);
+    _ageController = TextEditingController(text: user?.age?.toString() ?? '');
     _vehicleRegController = TextEditingController(text: user?.vehicleRegNo);
     _emergencyNameController = TextEditingController(
       text: user?.emergencyContactName,
-    );
-    _emergencyRelationController = TextEditingController(
-      text: user?.emergencyContactRelationship,
     );
     _emergencyPhoneController = TextEditingController(
       text: user?.emergencyContactNumber,
@@ -115,24 +75,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     _selectedManufacturer = user?.vehicleManufacturer;
     _selectedModel = user?.vehicleModel;
     _selectedBloodGroup = user?.bloodGroup;
-
+    _emergencyRelation = user?.emergencyContactRelationship;
     _selectedPreferences = List.from(user?.ridingPreferences ?? []);
     _photoUrl = user?.photoUrl;
+    _coverUrl = user?.coverImageUrl;
     _selectedRideDistance = user?.rideDistancePreference ?? 50.0;
-
-    // Ensure initial values for dropdowns are valid
-    if (_emergencyRelationController.text.isNotEmpty &&
-        ![
-          'Spouse',
-          'Parent/Guardian',
-          'Friend',
-        ].contains(_emergencyRelationController.text)) {
-      _emergencyRelationController.text = '';
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   @override
@@ -140,566 +87,422 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     _nameController.dispose();
     _usernameController.dispose();
     _ageController.dispose();
-    _bikeModelController.dispose();
     _vehicleRegController.dispose();
     _emergencyNameController.dispose();
-    _emergencyRelationController.dispose();
     _emergencyPhoneController.dispose();
     super.dispose();
   }
 
   void _onUploadPhoto() {
-    // Simulate photo upload
     setState(() {
       _photoUrl =
-          'https://i.pravatar.cc/300?u=mock_user_${DateTime.now().millisecondsSinceEpoch}';
+          'https://i.pravatar.cc/300?u=user_${DateTime.now().millisecondsSinceEpoch}';
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Photo uploaded successfully!')),
-    );
+  }
+
+  void _onUploadCover() {
+    setState(() {
+      _coverUrl =
+          'https://picsum.photos/seed/${DateTime.now().millisecondsSinceEpoch}/800/400';
+    });
   }
 
   Future<void> _onSubmit() async {
-    if (_formKey.currentState!.validate()) {
-      if (_photoUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile photo is mandatory')),
-        );
-        return;
-      }
-      if (_selectedGender == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Please select a gender')));
-        return;
-      }
-      if (_selectedPreferences.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select at least one riding preference'),
-          ),
-        );
-        return;
-      }
-
-      // Use existing ID if editing, or current Auth ID
-      final authState = ref.read(authControllerProvider);
-      final userId = widget.userToEdit?.id ?? authState.value?.id;
-
-      if (userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: No authenticated user found')),
-        );
-        return;
-      }
-
-      debugPrint('🔍 SAVING PROFILE: ID=$userId, Name=${_nameController.text}');
-
-      // Reserve username if provided
-      final username = _usernameController.text.trim();
-      if (username.isNotEmpty) {
-        try {
-          await ref.read(reserveUsernameUseCaseProvider)(userId, username);
-          debugPrint('✅ Username reserved: $username');
-        } catch (e) {
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Username error: ${ErrorHandler.getErrorMessage(e)}',
-                ),
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      final user = User(
-        id: userId,
-        phoneNumber: widget.userToEdit?.phoneNumber ?? '9876543210',
-        username: username.isNotEmpty ? username : null,
-        email: widget.userToEdit?.email,
-        fullName: _nameController.text,
-        age: int.tryParse(_ageController.text),
-        gender: _selectedGender,
-        vehicleManufacturer: _selectedManufacturer,
-        vehicleModel: _selectedModel,
-        vehicleRegNo: _vehicleRegController.text.toUpperCase(),
-        bloodGroup: _selectedBloodGroup,
-        emergencyContactName: _emergencyNameController.text,
-        emergencyContactRelationship: _emergencyRelationController.text,
-        emergencyContactNumber: _emergencyPhoneController.text,
-        ridingPreferences: _selectedPreferences,
-        photoUrl: _photoUrl,
-        isProfileComplete: true,
-        followers: widget.userToEdit?.followers ?? [],
-        following: widget.userToEdit?.following ?? [],
-        rideDistancePreference: _selectedRideDistance,
-      );
-
-      ref.read(profileControllerProvider.notifier).updateProfile(user).then((
-        _,
-      ) {
-        final state = ref.read(profileControllerProvider);
-        if (!state.hasError && mounted) {
-          // Force refresh of the user profile everywhere
-          ref.invalidate(userProfileProvider(user.id));
-
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Profile saved!')));
-          if (widget.userToEdit != null) {
-            context.pop(); // Go back if editing
-          } else {
-            context.go('/home'); // Go to home if onboarding
-          }
-        }
-      });
+    if (!_formKey.currentState!.validate()) return;
+    if (_photoUrl == null) {
+      _showError('Profile photo is mandatory');
+      return;
     }
+
+    final authState = ref.read(authControllerProvider);
+    final userId = widget.userToEdit?.id ?? authState.value?.id;
+
+    if (userId == null) return;
+
+    final user = User(
+      id: userId,
+      phoneNumber: widget.userToEdit?.phoneNumber ?? '9876543210',
+      username:
+          widget.userToEdit?.username ??
+          (_usernameController.text.trim().isNotEmpty
+              ? _usernameController.text.trim()
+              : null),
+      fullName: _nameController.text,
+      age: int.tryParse(_ageController.text),
+      gender: _selectedGender,
+      vehicleManufacturer: _selectedManufacturer,
+      vehicleModel: _selectedModel,
+      vehicleRegNo: _vehicleRegController.text.toUpperCase(),
+      bloodGroup: _selectedBloodGroup,
+      emergencyContactName: _emergencyNameController.text,
+      emergencyContactRelationship: _emergencyRelation,
+      emergencyContactNumber: _emergencyPhoneController.text,
+      ridingPreferences: _selectedPreferences,
+      photoUrl: _photoUrl,
+      coverImageUrl: _coverUrl,
+      isProfileComplete: true,
+      rideDistancePreference: _selectedRideDistance,
+    );
+
+    await ref.read(profileControllerProvider.notifier).updateProfile(user);
+    if (mounted) {
+      context.go('/home');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(profileControllerProvider);
-    final isEditing = widget.userToEdit != null;
-
     return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        title: Text(isEditing ? 'My Profile' : 'Complete Profile'),
+        title: Text(
+          widget.userToEdit != null ? 'Edit Profile' : 'Profile Setup',
+          style: AppTypography.title,
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: GestureDetector(
-                  onTap: _onUploadPhoto,
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 60,
-                        backgroundImage: _photoUrl != null
-                            ? NetworkImage(_photoUrl!)
-                            : null,
-                        child: _photoUrl == null
-                            ? const Icon(Icons.person, size: 60)
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Theme.of(context).primaryColor,
-                          child: const Icon(
-                            Icons.camera_alt,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ],
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            LinearProgressIndicator(
+              value: (_currentStep + 1) / 4,
+              backgroundColor: AppColors.primaryAqua.withValues(alpha: 0.1),
+              valueColor: const AlwaysStoppedAnimation(AppColors.primaryAqua),
+            ),
+            Expanded(
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: AppColors.primaryAqua,
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: TextButton(
-                  onPressed: _onUploadPhoto,
-                  child: const Text('Upload Photo'),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Tell us about yourself',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  border: OutlineInputBorder(),
-                  helperText: 'Alphabets only, max 2 spaces',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  // Validation: Only alphabets and maximum 2 spaces
-                  // ^[a-zA-Z]+( [a-zA-Z]+){0,2}$
-                  final RegExp nameRegExp = RegExp(
-                    r'^[a-zA-Z]+( [a-zA-Z]+){0,2}$',
-                  );
-                  if (!nameRegExp.hasMatch(value)) {
-                    return 'Letters only, no special chars/numbers, max 2 spaces';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Username display (read-only) - only if editing existing profile with username
-              if (widget.userToEdit?.username != null &&
-                  widget.userToEdit!.username!.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(4),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.alternate_email, color: Colors.blue),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stepper(
+                  type: StepperType.vertical,
+                  currentStep: _currentStep,
+                  onStepTapped: (step) => setState(() => _currentStep = step),
+                  onStepContinue: () {
+                    if (_currentStep < 3) {
+                      setState(() => _currentStep += 1);
+                    } else {
+                      _onSubmit();
+                    }
+                  },
+                  onStepCancel: () {
+                    if (_currentStep > 0) setState(() => _currentStep -= 1);
+                  },
+                  controlsBuilder: (context, details) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Row(
                         children: [
-                          const Text(
-                            'Username',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '@${widget.userToEdit!.username}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: GradientButton(
+                              text: _currentStep == 3 ? 'Finish' : 'Continue',
+                              onPressed: details.onStepContinue!,
+                              height: 48,
+                              gradient: AppColors.primaryGradient,
                             ),
                           ),
+                          if (_currentStep > 0) ...[
+                            const SizedBox(width: 12),
+                            TextButton(
+                              onPressed: details.onStepCancel,
+                              child: const Text(
+                                'Back',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
-                    ],
-                  ),
-                )
-              else
-                UsernameField(
-                  controller: _usernameController,
-                  initialUsername: widget.userToEdit?.username,
+                    );
+                  },
+                  steps: [
+                    _buildBasicInfoStep(),
+                    _buildVehicleStep(),
+                    _buildPreferencesStep(),
+                    _buildEmergencyStep(),
+                  ],
                 ),
-              const SizedBox(height: 16),
-              Stack(
-                alignment: Alignment.centerRight,
-                children: [
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Gender',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: _selectedGender,
-                    items: ['Male', 'Female', 'Other']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged:
-                        (widget.userToEdit?.gender != null &&
-                            widget.userToEdit!.gender!.isNotEmpty)
-                        ? null // Disable if already set
-                        : (value) => setState(() => _selectedGender = value),
-                    validator: (value) =>
-                        value == null ? 'Please select a gender' : null,
-                  ),
-                  if (widget.userToEdit?.gender != null &&
-                      widget.userToEdit!.gender!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 40.0),
-                      child: Tooltip(
-                        message:
-                            'To change gender, please contact admin at ${AppConfig.adminEmail}',
-                        triggerMode: TooltipTriggerMode.tap,
+              ),
+            ),
+            const SizedBox(height: 80),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Step _buildBasicInfoStep() {
+    return Step(
+      title: const Text('Basic Info'),
+      isActive: _currentStep >= 0,
+      state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+      content: Column(
+        children: [
+          Stack(
+            children: [
+              Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  color: AppColors.primaryAqua.withValues(alpha: 0.1),
+                  image: _coverUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(_coverUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: _coverUrl == null
+                    ? const Center(
                         child: Icon(
-                          Icons.info_outline,
-                          color: Theme.of(context).disabledColor,
+                          Icons.image_outlined,
+                          size: 40,
+                          color: AppColors.primaryAqua,
                         ),
-                      ),
+                      )
+                    : null,
+              ),
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: CircleAvatar(
+                  backgroundColor: Colors.white,
+                  radius: 18,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.camera_alt,
+                      size: 18,
+                      color: AppColors.primaryAqua,
                     ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _ageController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Age',
-                  border: OutlineInputBorder(),
+                    onPressed: _onUploadCover,
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter age';
-                  }
-                  final age = int.tryParse(value);
-                  if (age == null) {
-                    return 'Invalid age';
-                  }
-                  if (age < 18 || age > 100) {
-                    return 'Age must be between 18 and 100';
-                  }
-                  return null;
-                },
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'Vehicle Details',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Manufacturer',
-                  border: OutlineInputBorder(),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: -40,
+                child: Center(
+                  child: ProfileAvatar(
+                    imageUrl: _photoUrl,
+                    radius: 45,
+                    onTap: _onUploadPhoto,
+                  ),
                 ),
-                initialValue: _selectedManufacturer,
-                items: BikeConfig.manufacturers.keys
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (value) {
+              ),
+            ],
+          ).animate().fadeIn().scale(),
+          const SizedBox(height: 50),
+          TextFormField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              hintText: 'Full Name',
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            validator: (v) => v!.isEmpty ? 'Enter name' : null,
+          ).animate().slideX(),
+          const SizedBox(height: 16),
+          UsernameField(
+            controller: _usernameController,
+            initialUsername: widget.userToEdit?.username,
+            enabled: widget.userToEdit?.username == null,
+          ).animate().slideX(delay: 100.ms),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _ageController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: 'Age',
+              prefixIcon: Icon(Icons.cake_outlined),
+            ),
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'Enter age';
+              final age = int.tryParse(v);
+              if (age == null) return 'Invalid age';
+              if (age < 18) return 'Must be 18 or older';
+              return null;
+            },
+          ).animate().slideX(delay: 150.ms),
+          const SizedBox(height: 16),
+          AnimatedDropdown<String>(
+            hintText: 'Blood Group',
+            prefixIcon: const Icon(Icons.bloodtype_outlined),
+            value: _selectedBloodGroup,
+            items: BikeConfig.bloodGroups,
+            itemLabelBuilder: (val) => val,
+            onChanged: (v) => setState(() => _selectedBloodGroup = v),
+            validator: (v) => v == null ? 'Select blood group' : null,
+          ).animate().slideX(delay: 200.ms),
+          const SizedBox(height: 16),
+          _buildGenderSelector().animate().slideX(delay: 250.ms),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenderSelector() {
+    return Row(
+      children: ['Male', 'Female', 'Other']
+          .map(
+            (g) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: AnimatedChip(
+                  label: g,
+                  isSelected: _selectedGender == g,
+                  enabled: widget.userToEdit?.gender == null,
+                  onSelected: () => setState(() => _selectedGender = g),
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Step _buildVehicleStep() {
+    return Step(
+      title: const Text('Vehicle Details'),
+      isActive: _currentStep >= 1,
+      state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+      content: Column(
+        children: [
+          AnimatedDropdown<String>(
+            hintText: 'Manufacturer',
+            prefixIcon: const Icon(Icons.directions_bike),
+            value: _selectedManufacturer,
+            items: BikeConfig.manufacturers.keys.toList(),
+            itemLabelBuilder: (val) => val,
+            onChanged: (v) => setState(() {
+              _selectedManufacturer = v;
+              _selectedModel = null;
+            }),
+            validator: (v) => v == null ? 'Select manufacturer' : null,
+          ),
+          const SizedBox(height: 16),
+          AnimatedDropdown<String>(
+            hintText: 'Model',
+            prefixIcon: const Icon(Icons.settings),
+            value: _selectedModel,
+            items: _selectedManufacturer == null
+                ? []
+                : BikeConfig.manufacturers[_selectedManufacturer]!,
+            itemLabelBuilder: (val) => val,
+            onChanged: (v) => setState(() => _selectedModel = v),
+            validator: (v) => v == null ? 'Select model' : null,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _vehicleRegController,
+            decoration: const InputDecoration(
+              hintText: 'Registration Number',
+              prefixIcon: Icon(Icons.numbers),
+            ),
+            textCapitalization: TextCapitalization.characters,
+            validator: (v) => v!.isEmpty ? 'Enter registration number' : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Step _buildPreferencesStep() {
+    return Step(
+      title: const Text('Riding Preferences'),
+      isActive: _currentStep >= 2,
+      state: _currentStep > 2 ? StepState.complete : StepState.indexed,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _ridingPreferencesOptions.map((pref) {
+              final isSelected = _selectedPreferences.contains(pref);
+              return AnimatedChip(
+                label: pref,
+                isSelected: isSelected,
+                onSelected: () {
                   setState(() {
-                    _selectedManufacturer = value;
-                    _selectedModel =
-                        null; // Reset model when manufacturer changes
+                    isSelected
+                        ? _selectedPreferences.remove(pref)
+                        : _selectedPreferences.add(pref);
                   });
                 },
-                validator: (value) =>
-                    value == null ? 'Select manufacturer' : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Model',
-                  border: OutlineInputBorder(),
-                ),
-                initialValue: _selectedModel,
-                items: (_selectedManufacturer == null)
-                    ? []
-                    : BikeConfig.manufacturers[_selectedManufacturer]!
-                          .map(
-                            (e) => DropdownMenuItem(value: e, child: Text(e)),
-                          )
-                          .toList(),
-                onChanged: _selectedManufacturer == null
-                    ? null
-                    : (value) => setState(() => _selectedModel = value),
-                validator: (value) => value == null ? 'Select model' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _vehicleRegController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  labelText: 'Registration Number',
-                  hintText: 'e.g. MH12HY8888 or 26BH1234M',
-                  helperText: 'Format: MH12HY8888 or 26BH1234M',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter reg number';
-                  }
-                  final upperVal = value.toUpperCase();
-                  // Standard: ^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$
-                  // BH Series: ^[0-9]{2}BH[0-9]{4}[A-Z]{1,2}$
-                  // Combined Regex
-                  final RegExp regPattern = RegExp(
-                    r'^([A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}|[0-9]{2}BH[0-9]{4}[A-Z]{1,2})$',
-                  );
-                  if (!regPattern.hasMatch(upperVal)) {
-                    return 'Invalid format. Use MH12HY8888 or 26BH1234M';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Health & Safety',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Blood Group',
-                  border: OutlineInputBorder(),
-                ),
-                initialValue: _selectedBloodGroup,
-                items: BikeConfig.bloodGroups
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedBloodGroup = value),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Text(
-                    'Emergency Contact',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message:
-                        'Visible to ride organizers for safety coordination during rides.',
-                    triggerMode: TooltipTriggerMode.tap,
-                    child: Icon(
-                      Icons.info_outline,
-                      size: 20,
-                      color: Colors.blue[300],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emergencyNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Contact Person Name',
-                  border: OutlineInputBorder(),
-                  helperText: 'Alphabets only, max 2 spaces',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter contact name';
-                  }
-                  // Validation: same as Full Name
-                  final RegExp nameRegExp = RegExp(
-                    r'^[a-zA-Z]+( [a-zA-Z]+){0,2}$',
-                  );
-                  if (!nameRegExp.hasMatch(value)) {
-                    return 'Letters only, no special chars/numbers';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Relationship (e.g. Spouse, Parent)',
-                  border: OutlineInputBorder(),
-                ),
-                initialValue: _emergencyRelationController.text.isEmpty
-                    ? null
-                    : [
-                        'Spouse',
-                        'Parent/Guardian',
-                        'Friend',
-                      ].contains(_emergencyRelationController.text)
-                    ? _emergencyRelationController.text
-                    : null,
-                items: ['Spouse', 'Parent/Guardian', 'Friend']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _emergencyRelationController.text = value;
-                  }
-                },
-                validator: (value) =>
-                    value == null ? 'Select relationship' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emergencyPhoneController,
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
-                  border: OutlineInputBorder(),
-                  prefixText: '+91 ',
-                  counterText: '',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter phone number';
-                  }
-                  if (value.length != 10) {
-                    return 'Must be 10 digits';
-                  }
-                  // Starts with 6-9
-                  if (!['6', '7', '8', '9'].contains(value[0])) {
-                    return 'Invalid mobile number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Riding Preferences',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: _miningPreferencesOptions.map((pref) {
-                  final isSelected = _selectedPreferences.contains(pref);
-                  return FilterChip(
-                    label: Text(pref),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedPreferences.add(pref);
-                        } else {
-                          _selectedPreferences.remove(pref);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Ride Distance Radius',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Slider(
-                      value: _selectedRideDistance,
-                      min: 1.0,
-                      max: 200.0,
-                      divisions: 199,
-                      label: '${_selectedRideDistance.round()} km',
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedRideDistance = value;
-                        });
-                      },
-                    ),
-                  ),
-                  Text(
-                    '${_selectedRideDistance.round()} km',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              if (state.isLoading)
-                const Center(child: CircularProgressIndicator())
-              else
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _onSubmit,
-                    child: Text(isEditing ? 'Save Changes' : 'Save Profile'),
-                  ),
-                ),
-              if (state.hasError)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    'Error: ${state.error}',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-            ],
+              );
+            }).toList(),
           ),
-        ),
+          const SizedBox(height: 24),
+          Text(
+            'Search Radius: ${_selectedRideDistance.round()} km',
+            style: AppTypography.body,
+          ),
+          Slider(
+            value: _selectedRideDistance,
+            min: 5,
+            max: 200,
+            onChanged: (v) => setState(() => _selectedRideDistance = v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Step _buildEmergencyStep() {
+    return Step(
+      title: const Text('Emergency Contact'),
+      isActive: _currentStep >= 3,
+      state: _currentStep > 3 ? StepState.complete : StepState.indexed,
+      content: Column(
+        children: [
+          TextFormField(
+            controller: _emergencyNameController,
+            decoration: const InputDecoration(
+              hintText: 'Contact Name',
+              prefixIcon: Icon(Icons.contact_phone_outlined),
+            ),
+            validator: null,
+          ),
+          const SizedBox(height: 16),
+          AnimatedDropdown<String>(
+            hintText: 'Relationship',
+            prefixIcon: const Icon(Icons.people_outline),
+            value: _emergencyRelation,
+            items: const ['Spouse', 'Parent/Guardian', 'Friend'],
+            itemLabelBuilder: (val) => val,
+            onChanged: (v) => setState(() => _emergencyRelation = v),
+            validator: null,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _emergencyPhoneController,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              hintText: 'Phone Number',
+              prefixIcon: Icon(Icons.phone_android),
+            ),
+            maxLength: 10,
+            validator: (v) {
+              if (v == null || v.isEmpty) return null;
+              if (v.length != 10) return 'Enter 10-digit number';
+              return null;
+            },
+          ),
+        ],
       ),
     );
   }

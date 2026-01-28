@@ -8,6 +8,7 @@ abstract class NotificationRemoteDataSource {
   );
   Stream<List<AppNotification>> getUserNotifications(String userId);
   Future<void> markAsRead(String userId, String notificationId);
+  Future<void> deleteNotificationsByRideId(String userId, String rideId);
 }
 
 class NotificationRemoteDataSourceImpl implements NotificationRemoteDataSource {
@@ -81,6 +82,26 @@ class NotificationRemoteDataSourceImpl implements NotificationRemoteDataSource {
           .update({'isRead': true});
     } catch (e) {
       throw Exception('Failed to mark notification as read: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteNotificationsByRideId(String userId, String rideId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .where('rideId', isEqualTo: rideId)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to delete notifications: $e');
     }
   }
 }

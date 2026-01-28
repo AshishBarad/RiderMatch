@@ -28,6 +28,7 @@ mixin _$User {
   String? get email => throw _privateConstructorUsedError;
   String? get fullName => throw _privateConstructorUsedError;
   String? get photoUrl => throw _privateConstructorUsedError;
+  String? get coverImageUrl => throw _privateConstructorUsedError;
   int? get age => throw _privateConstructorUsedError;
   String? get gender => throw _privateConstructorUsedError;
   String? get vehicleModel => throw _privateConstructorUsedError;
@@ -43,6 +44,8 @@ mixin _$User {
   List<String> get following => throw _privateConstructorUsedError;
   List<String> get blockedUsers => throw _privateConstructorUsedError;
   double get rideDistancePreference => throw _privateConstructorUsedError;
+  double? get lastKnownLat => throw _privateConstructorUsedError;
+  double? get lastKnownLng => throw _privateConstructorUsedError;
 
   /// Serializes this User to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -66,6 +69,7 @@ abstract class $UserCopyWith<$Res> {
     String? email,
     String? fullName,
     String? photoUrl,
+    String? coverImageUrl,
     int? age,
     String? gender,
     String? vehicleModel,
@@ -80,6 +84,8 @@ abstract class $UserCopyWith<$Res> {
     List<String> following,
     List<String> blockedUsers,
     double rideDistancePreference,
+    double? lastKnownLat,
+    double? lastKnownLng,
   });
 }
 
@@ -105,6 +111,7 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? email = freezed,
     Object? fullName = freezed,
     Object? photoUrl = freezed,
+    Object? coverImageUrl = freezed,
     Object? age = freezed,
     Object? gender = freezed,
     Object? vehicleModel = freezed,
@@ -119,6 +126,8 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? following = null,
     Object? blockedUsers = null,
     Object? rideDistancePreference = null,
+    Object? lastKnownLat = freezed,
+    Object? lastKnownLng = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -149,6 +158,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
             photoUrl: freezed == photoUrl
                 ? _value.photoUrl
                 : photoUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            coverImageUrl: freezed == coverImageUrl
+                ? _value.coverImageUrl
+                : coverImageUrl // ignore: cast_nullable_to_non_nullable
                       as String?,
             age: freezed == age
                 ? _value.age
@@ -207,6 +220,14 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
                 ? _value.rideDistancePreference
                 : rideDistancePreference // ignore: cast_nullable_to_non_nullable
                       as double,
+            lastKnownLat: freezed == lastKnownLat
+                ? _value.lastKnownLat
+                : lastKnownLat // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            lastKnownLng: freezed == lastKnownLng
+                ? _value.lastKnownLng
+                : lastKnownLng // ignore: cast_nullable_to_non_nullable
+                      as double?,
           )
           as $Val,
     );
@@ -229,6 +250,7 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
     String? email,
     String? fullName,
     String? photoUrl,
+    String? coverImageUrl,
     int? age,
     String? gender,
     String? vehicleModel,
@@ -243,6 +265,8 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
     List<String> following,
     List<String> blockedUsers,
     double rideDistancePreference,
+    double? lastKnownLat,
+    double? lastKnownLng,
   });
 }
 
@@ -265,6 +289,7 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? email = freezed,
     Object? fullName = freezed,
     Object? photoUrl = freezed,
+    Object? coverImageUrl = freezed,
     Object? age = freezed,
     Object? gender = freezed,
     Object? vehicleModel = freezed,
@@ -279,6 +304,8 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? following = null,
     Object? blockedUsers = null,
     Object? rideDistancePreference = null,
+    Object? lastKnownLat = freezed,
+    Object? lastKnownLng = freezed,
   }) {
     return _then(
       _$UserImpl(
@@ -309,6 +336,10 @@ class __$$UserImplCopyWithImpl<$Res>
         photoUrl: freezed == photoUrl
             ? _value.photoUrl
             : photoUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        coverImageUrl: freezed == coverImageUrl
+            ? _value.coverImageUrl
+            : coverImageUrl // ignore: cast_nullable_to_non_nullable
                   as String?,
         age: freezed == age
             ? _value.age
@@ -366,6 +397,14 @@ class __$$UserImplCopyWithImpl<$Res>
             ? _value.rideDistancePreference
             : rideDistancePreference // ignore: cast_nullable_to_non_nullable
                   as double,
+        lastKnownLat: freezed == lastKnownLat
+            ? _value.lastKnownLat
+            : lastKnownLat // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        lastKnownLng: freezed == lastKnownLng
+            ? _value.lastKnownLng
+            : lastKnownLng // ignore: cast_nullable_to_non_nullable
+                  as double?,
       ),
     );
   }
@@ -382,6 +421,7 @@ class _$UserImpl implements _User {
     this.email,
     this.fullName,
     this.photoUrl,
+    this.coverImageUrl,
     this.age,
     this.gender,
     this.vehicleModel,
@@ -396,6 +436,8 @@ class _$UserImpl implements _User {
     final List<String> following = const [],
     final List<String> blockedUsers = const [],
     this.rideDistancePreference = 50.0,
+    this.lastKnownLat,
+    this.lastKnownLng,
   }) : _ridingPreferences = ridingPreferences,
        _followers = followers,
        _following = following,
@@ -419,6 +461,8 @@ class _$UserImpl implements _User {
   final String? fullName;
   @override
   final String? photoUrl;
+  @override
+  final String? coverImageUrl;
   @override
   final int? age;
   @override
@@ -477,10 +521,14 @@ class _$UserImpl implements _User {
   @override
   @JsonKey()
   final double rideDistancePreference;
+  @override
+  final double? lastKnownLat;
+  @override
+  final double? lastKnownLng;
 
   @override
   String toString() {
-    return 'User(id: $id, phoneNumber: $phoneNumber, username: $username, isProfileComplete: $isProfileComplete, email: $email, fullName: $fullName, photoUrl: $photoUrl, age: $age, gender: $gender, vehicleModel: $vehicleModel, vehicleRegNo: $vehicleRegNo, vehicleManufacturer: $vehicleManufacturer, emergencyContactName: $emergencyContactName, emergencyContactRelationship: $emergencyContactRelationship, emergencyContactNumber: $emergencyContactNumber, bloodGroup: $bloodGroup, ridingPreferences: $ridingPreferences, followers: $followers, following: $following, blockedUsers: $blockedUsers, rideDistancePreference: $rideDistancePreference)';
+    return 'User(id: $id, phoneNumber: $phoneNumber, username: $username, isProfileComplete: $isProfileComplete, email: $email, fullName: $fullName, photoUrl: $photoUrl, coverImageUrl: $coverImageUrl, age: $age, gender: $gender, vehicleModel: $vehicleModel, vehicleRegNo: $vehicleRegNo, vehicleManufacturer: $vehicleManufacturer, emergencyContactName: $emergencyContactName, emergencyContactRelationship: $emergencyContactRelationship, emergencyContactNumber: $emergencyContactNumber, bloodGroup: $bloodGroup, ridingPreferences: $ridingPreferences, followers: $followers, following: $following, blockedUsers: $blockedUsers, rideDistancePreference: $rideDistancePreference, lastKnownLat: $lastKnownLat, lastKnownLng: $lastKnownLng)';
   }
 
   @override
@@ -500,6 +548,8 @@ class _$UserImpl implements _User {
                 other.fullName == fullName) &&
             (identical(other.photoUrl, photoUrl) ||
                 other.photoUrl == photoUrl) &&
+            (identical(other.coverImageUrl, coverImageUrl) ||
+                other.coverImageUrl == coverImageUrl) &&
             (identical(other.age, age) || other.age == age) &&
             (identical(other.gender, gender) || other.gender == gender) &&
             (identical(other.vehicleModel, vehicleModel) ||
@@ -537,7 +587,11 @@ class _$UserImpl implements _User {
               _blockedUsers,
             ) &&
             (identical(other.rideDistancePreference, rideDistancePreference) ||
-                other.rideDistancePreference == rideDistancePreference));
+                other.rideDistancePreference == rideDistancePreference) &&
+            (identical(other.lastKnownLat, lastKnownLat) ||
+                other.lastKnownLat == lastKnownLat) &&
+            (identical(other.lastKnownLng, lastKnownLng) ||
+                other.lastKnownLng == lastKnownLng));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -551,6 +605,7 @@ class _$UserImpl implements _User {
     email,
     fullName,
     photoUrl,
+    coverImageUrl,
     age,
     gender,
     vehicleModel,
@@ -565,6 +620,8 @@ class _$UserImpl implements _User {
     const DeepCollectionEquality().hash(_following),
     const DeepCollectionEquality().hash(_blockedUsers),
     rideDistancePreference,
+    lastKnownLat,
+    lastKnownLng,
   ]);
 
   /// Create a copy of User
@@ -590,6 +647,7 @@ abstract class _User implements User {
     final String? email,
     final String? fullName,
     final String? photoUrl,
+    final String? coverImageUrl,
     final int? age,
     final String? gender,
     final String? vehicleModel,
@@ -604,6 +662,8 @@ abstract class _User implements User {
     final List<String> following,
     final List<String> blockedUsers,
     final double rideDistancePreference,
+    final double? lastKnownLat,
+    final double? lastKnownLng,
   }) = _$UserImpl;
 
   factory _User.fromJson(Map<String, dynamic> json) = _$UserImpl.fromJson;
@@ -622,6 +682,8 @@ abstract class _User implements User {
   String? get fullName;
   @override
   String? get photoUrl;
+  @override
+  String? get coverImageUrl;
   @override
   int? get age;
   @override
@@ -650,6 +712,10 @@ abstract class _User implements User {
   List<String> get blockedUsers;
   @override
   double get rideDistancePreference;
+  @override
+  double? get lastKnownLat;
+  @override
+  double? get lastKnownLng;
 
   /// Create a copy of User
   /// with the given fields replaced by the non-null parameter values.

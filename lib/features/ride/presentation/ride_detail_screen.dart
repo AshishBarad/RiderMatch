@@ -1,69 +1,479 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../domain/entities/ride.dart';
-import 'widgets/ride_map_widget.dart';
 import 'ride_providers.dart';
-import '../../profile/presentation/profile_providers.dart';
-import '../../auth/domain/entities/user.dart' as domain; // Aliased import
-import '../../chat/presentation/ride_chat_widget.dart';
+import 'widgets/ride_map_widget.dart';
 import 'widgets/ride_invite_bottom_sheet.dart';
 import '../../auth/presentation/auth_providers.dart';
-import '../../../../core/utils/error_handler.dart';
+import '../../../core/presentation/theme/app_colors.dart';
+import '../../../core/presentation/theme/app_typography.dart';
+import '../../../core/presentation/widgets/gradient_button.dart';
+import '../../../core/presentation/widgets/profile_avatar.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:intl/intl.dart';
 
 class RideDetailScreen extends ConsumerWidget {
   final Ride ride;
-
   const RideDetailScreen({super.key, required this.ride});
 
-  Future<void> _launchNavigation(BuildContext context) async {
-    final url =
-        'https://www.google.com/maps/dir/?api=1&destination=${ride.fromLat},${ride.fromLng}';
-    final uri = Uri.parse(url);
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncRide = ref.watch(rideDetailProvider(ride.id));
+    final authState = ref.watch(authControllerProvider);
+    final currentUserId = authState.value?.id ?? '';
 
-    debugPrint(
-      '🔔 Navigating to: $url (Coords: ${ride.fromLat}, ${ride.fromLng})',
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Opening Google Maps...'),
-        duration: Duration(seconds: 1),
+    return asyncRide.when(
+      data: (freshRide) =>
+          _buildBody(context, ref, freshRide ?? ride, currentUserId),
+      loading: () =>
+          _buildBody(context, ref, ride, currentUserId, isLoading: true),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text('Error: $e')),
       ),
     );
+  }
 
-    try {
-      bool launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    Ride ride,
+    String currentUserId, {
+    bool isLoading = false,
+  }) {
+    final isOwner = ride.creatorId == currentUserId;
+    final isParticipant = ride.participantIds.contains(currentUserId);
 
-      if (!launched) {
-        debugPrint(
-          '⚠️ External app launch failed, trying platform default (browser)...',
-        );
-        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-      }
-
-      if (!launched) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: Could not open maps or browser.'),
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          // Hero Map Banner
+          SliverAppBar(
+            expandedHeight: 300,
+            pinned: true,
+            stretch: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  RideMapWidget(ride: ride).animate().fadeIn(duration: 600.ms),
+                  // Gradient Overlay for readability - wrap with IgnorePointer to allow map interaction
+                  IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.3),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.5),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('🚨 Error launching navigation URL: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${ErrorHandler.getErrorMessage(e)}')),
-        );
-      }
+          ),
+
+          SliverToBoxAdapter(
+            child: Transform.translate(
+              offset: const Offset(
+                0,
+                -15,
+              ), // Reduced negative offset for more map visibility
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(32),
+                    topRight: Radius.circular(32),
+                  ),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 50,
+                      spreadRadius: 5,
+                      offset: const Offset(0, -20),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    24,
+                    48,
+                    24,
+                    24,
+                  ), // Increased top padding
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(ride),
+                      const SizedBox(height: 24),
+                      _buildRideInfo(ride),
+                      const SizedBox(height: 32),
+                      Text(
+                        'Description',
+                        style: AppTypography.title.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Divider(height: 24, thickness: 1),
+                      const SizedBox(height: 12),
+                      Text(
+                        ride.description,
+                        style: AppTypography.body.copyWith(
+                          color: Colors.black, // Max contrast
+                          height: 1.6,
+                          fontSize: 16, // Slightly larger
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      _buildStopsList(ride),
+                      const SizedBox(height: 32),
+                      _buildParticipantsList(ride),
+                      const SizedBox(height: 40),
+                      _buildActionButton(
+                        context,
+                        ref,
+                        ride,
+                        isOwner,
+                        isParticipant,
+                      ),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ),
+            ).animate().slideY(begin: 0.2, curve: Curves.easeOutCubic).fadeIn(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(Ride ride) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (ride.isPrivate)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.lock, size: 14, color: AppColors.error),
+                      SizedBox(width: 6),
+                      Text(
+                        'PRIVATE RIDE',
+                        style: TextStyle(
+                          color: AppColors.error,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Text(
+                ride.title,
+                style: AppTypography.header.copyWith(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on,
+                    size: 16,
+                    color: AppColors.primaryAqua,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    ride.toLocation,
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.primaryAqua,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primaryAqua.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: const Icon(
+              Icons.share_outlined,
+              color: AppColors.primaryAqua,
+            ),
+            onPressed: () {
+              final dateStr = DateFormat('MMM d, yyyy').format(ride.dateTime);
+              Share.share(
+                'Join me for this ride: ${ride.title} to ${ride.toLocation} on $dateStr!\n\n'
+                'Check it out on RiderMatch.',
+                subject: 'Ride Invitation: ${ride.title}',
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRideInfo(Ride ride) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundLight,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.primaryAqua.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildInfoItem(Icons.calendar_today, 'Date', 'Tomorrow'),
+          _buildInfoItem(Icons.speed, 'Difficulty', ride.difficulty),
+          _buildInfoItem(
+            Icons.route,
+            'Distance',
+            '${ride.validDistanceKm.round()}km',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Icon(icon, size: 20, color: AppColors.textTertiary),
+        const SizedBox(height: 8),
+        Text(label, style: AppTypography.caption),
+        Text(value, style: AppTypography.title.copyWith(fontSize: 14)),
+      ],
+    );
+  }
+
+  Widget _buildParticipantsList(Ride ride) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Participants', style: AppTypography.title),
+            Text(
+              '${ride.participantIds.length} joined',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.primaryAqua,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 50,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: ride.participantIds.length + 1,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              if (index == ride.participantIds.length) {
+                return GestureDetector(
+                  onTap: () => _showInviteSheet(context, ride),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.textTertiary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add, color: AppColors.textTertiary),
+                  ),
+                );
+              }
+              return ProfileAvatar(radius: 22); // Generic for now
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context,
+    WidgetRef ref,
+    Ride ride,
+    bool isOwner,
+    bool isParticipant,
+  ) {
+    if (isOwner) {
+      return Row(
+        children: [
+          Expanded(
+            child: GradientButton(
+              text: 'Manage Ride',
+              onPressed: () => context.push('/create-ride', extra: ride),
+              gradient: [Colors.grey[700]!, Colors.grey[800]!],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GradientButton(
+              text: 'Open Chat',
+              onPressed: () => context.push('/ride-chat/${ride.id}'),
+              gradient: AppColors.primaryGradient,
+            ),
+          ),
+        ],
+      );
     }
+
+    return Row(
+      children: [
+        Expanded(
+          child: GradientButton(
+            text: isParticipant ? 'Open Chat' : 'Join Ride',
+            onPressed: () {
+              if (isParticipant || isOwner) {
+                context.push('/ride-chat/${ride.id}');
+              } else {
+                // Join logic
+              }
+            },
+            gradient: isParticipant
+                ? [AppColors.textTertiary, AppColors.textTertiary]
+                : AppColors.primaryGradient,
+          ),
+        ),
+        if (!isParticipant) ...[
+          const SizedBox(width: 16),
+          Container(
+            height: 56,
+            width: 56,
+            decoration: BoxDecoration(
+              color: AppColors.accentOrange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.favorite_border,
+                color: AppColors.accentOrange,
+              ),
+              onPressed: () {},
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStopsList(Ride ride) {
+    if (ride.stops.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Stops',
+          style: AppTypography.title.copyWith(
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const Divider(height: 24, thickness: 1),
+        const SizedBox(height: 8),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: ride.stops.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 16),
+          itemBuilder: (context, index) {
+            final stop = ride.stops[index];
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryAqua.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${index + 1}',
+                    style: const TextStyle(
+                      color: AppColors.primaryAqua,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Stop ${index + 1}',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textTertiary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        stop.address,
+                        style: AppTypography.body.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
   }
 
   void _showInviteSheet(BuildContext context, Ride ride) {
@@ -72,417 +482,6 @@ class RideDetailScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => RideInviteBottomSheet(ride: ride),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authControllerProvider);
-    final currentUserId = authState.value?.id ?? '';
-
-    // Watch for FRESH updates to this specific ride
-    final asyncRide = ref.watch(rideDetailProvider(ride.id));
-
-    // Logic: Use fresh data if available.
-    // If loading, fall back to 'ride' passed in arg but be aware it might be partial.
-    // If error, show error or fallback.
-
-    return asyncRide.when(
-      data: (freshRide) {
-        // If null (deleted?), fallback to passed ride but maybe show deleted state?
-        final currentRide = freshRide ?? ride;
-        return _buildScaffold(context, ref, currentRide, currentUserId);
-      },
-      loading: () =>
-          _buildScaffold(context, ref, ride, currentUserId, isLoading: true),
-      error: (e, st) => Scaffold(
-        appBar: AppBar(title: const Text('Error')),
-        body: Center(child: Text(ErrorHandler.getErrorMessage(e))),
-      ),
-    );
-  }
-
-  Widget _buildScaffold(
-    BuildContext context,
-    WidgetRef ref,
-    Ride currentRide,
-    String currentUserId, {
-    bool isLoading = false,
-  }) {
-    final isCreator = currentRide.creatorId == currentUserId;
-    final isParticipant = currentRide.participantIds.contains(currentUserId);
-    final isMember = isCreator || isParticipant;
-
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Ride Details'),
-          actions: [
-            if (isCreator)
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () =>
-                    context.push('/create-ride', extra: currentRide),
-              ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Details', icon: Icon(Icons.info_outline)),
-              Tab(text: 'Chat', icon: Icon(Icons.chat_bubble_outline)),
-            ],
-          ),
-        ),
-        body: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
-                children: [
-                  Stack(
-                    children: [
-                      _buildDetailsTab(context, ref, currentRide),
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: _buildStickyBottomBar(
-                          context,
-                          ref,
-                          currentRide,
-                          currentUserId,
-                        ),
-                      ),
-                    ],
-                  ),
-                  RideChatWidget(
-                    rideId: currentRide.id,
-                    isMember: isCreator || isParticipant,
-                    currentUserId: currentUserId,
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildDetailsTab(BuildContext context, WidgetRef ref, Ride ride) {
-    final dateStr = DateFormat(
-      'EEEE, MMM d, yyyy • h:mm a',
-    ).format(ride.dateTime);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            ride.title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: ride.difficulty == 'Hard'
-                      ? Colors.red[100]
-                      : Colors.green[100],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  ride.difficulty,
-                  style: TextStyle(
-                    color: ride.difficulty == 'Hard'
-                        ? Colors.red[800]
-                        : Colors.green[800],
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Icon(Icons.people, size: 20, color: Colors.grey),
-              const SizedBox(width: 4),
-              // Use participants count or length of array
-              Text('${ride.participantIds.length} Riders'),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildInfoRow(Icons.calendar_today, dateStr),
-          const SizedBox(height: 16),
-          _buildInfoRow(
-            Icons.location_on,
-            'Total Distance: ${ride.validDistanceKm} km',
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-          const Text(
-            'Description',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            ride.description,
-            style: const TextStyle(fontSize: 16, height: 1.5),
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-          const Text(
-            'Participants',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _buildParticipantsList(ref, ride),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-          const Text(
-            'Route',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          RideMapWidget(ride: ride),
-          const SizedBox(height: 12),
-          Center(
-            child: TextButton.icon(
-              onPressed: () => _launchNavigation(context),
-              icon: const Icon(Icons.directions),
-              label: const Text(
-                'Start navigation to starting point',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 100),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildParticipantsList(WidgetRef ref, Ride ride) {
-    if (ride.participantIds.isEmpty) {
-      return const Text('No participants yet.');
-    }
-
-    return SizedBox(
-      height: 100,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: ride.participantIds.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          final userId = ride.participantIds[index];
-          return ParticipantItem(userId: userId);
-        },
-      ),
-    );
-  }
-
-  Widget _buildStickyBottomBar(
-    BuildContext context,
-    WidgetRef ref,
-    Ride ride,
-    String currentUserId,
-  ) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: _buildActionButtons(context, ref, ride, currentUserId),
-    );
-  }
-
-  Widget _buildActionButtons(
-    BuildContext context,
-    WidgetRef ref,
-    Ride ride,
-    String currentUserId,
-  ) {
-    final isCreator = ride.creatorId == currentUserId;
-    final isParticipant = ride.participantIds.contains(currentUserId);
-    final isPending = ride.joinRequestIds.contains(currentUserId);
-
-    if (isCreator) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => _showInviteSheet(context, ride),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.blue,
-                side: const BorderSide(color: Colors.blue),
-              ),
-              child: const Text('Invite'),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () =>
-                  context.push('/manage-participants', extra: ride),
-              child: const Text('Manage'),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (isPending) {
-      return ElevatedButton(
-        onPressed: null,
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 50),
-          backgroundColor: Colors.grey[200],
-        ),
-        child: const Text('Awaiting Confirmation'),
-      );
-    }
-
-    if (isParticipant) {
-      return ElevatedButton(
-        onPressed: () async {
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Cancel Ride?'),
-              content: const Text(
-                'Are you sure you want to leave this ride? The creator will be notified.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Back'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text(
-                    'Confirm Leave',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ],
-            ),
-          );
-
-          if (confirmed == true && context.mounted) {
-            await ref
-                .read(rideControllerProvider.notifier)
-                .removeParticipant(ride.id, currentUserId);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('You have left the ride.')),
-              );
-              context.pop();
-            }
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 50),
-          backgroundColor: Colors.red[50],
-          foregroundColor: Colors.red,
-          side: const BorderSide(color: Colors.red),
-        ),
-        child: const Text('Cancel My Participation'),
-      );
-    }
-
-    return ElevatedButton(
-      onPressed: () async {
-        await ref
-            .read(rideControllerProvider.notifier)
-            .requestToJoin(ride.id, currentUserId);
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Join Request Sent!')));
-        }
-      },
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 50),
-      ),
-      child: const Text('Join Ride'),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.grey[700]),
-        const SizedBox(width: 12),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 16))),
-      ],
-    );
-  }
-}
-
-class ParticipantItem extends ConsumerWidget {
-  final String userId;
-  const ParticipantItem({super.key, required this.userId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Explicitly cast or rely on provider type
-    final AsyncValue<domain.User?> userAsync = ref.watch(
-      userProfileProvider(userId),
-    );
-
-    return userAsync.when(
-      data: (user) {
-        final displayName = user?.fullName ?? 'Unknown';
-        return GestureDetector(
-          onTap: () {
-            if (user != null) {
-              context.push('/user-profile', extra: user);
-            }
-          },
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundImage: (user?.photoUrl != null)
-                    ? NetworkImage(user!.photoUrl!)
-                    : null,
-                child: (user?.photoUrl == null)
-                    ? const Icon(Icons.person)
-                    : null,
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: 70,
-                child: Text(
-                  displayName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8.0),
-        child: CircleAvatar(radius: 30, child: CircularProgressIndicator()),
-      ),
-      error: (_, __) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8.0),
-        child: CircleAvatar(radius: 30, child: Icon(Icons.error_outline)),
-      ),
     );
   }
 }

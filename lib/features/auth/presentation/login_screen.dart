@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'auth_providers.dart';
+import '../../../core/presentation/theme/app_colors.dart';
+import '../../../core/presentation/theme/app_typography.dart';
+import '../../../core/presentation/widgets/gradient_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -23,41 +26,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _onLogin() async {
     final phone = _phoneController.text.trim();
 
-    // Validate length
     if (phone.isEmpty || phone.length != 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid 10-digit mobile number'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showError('Please enter a valid 10-digit mobile number');
       return;
     }
 
-    // Validate first digit (must be 6, 7, 8, or 9 for Indian mobile numbers)
     if (!['6', '7', '8', '9'].contains(phone[0])) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mobile number must start with 6, 7, 8, or 9'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showError('Mobile number must start with 6, 7, 8, or 9');
       return;
     }
 
-    debugPrint('🔄 Initiating login for $phone');
     await ref.read(authControllerProvider.notifier).login(phone);
 
     if (mounted) {
       final state = ref.read(authControllerProvider);
       if (!state.hasError) {
-        debugPrint('✅ Login initiated successfully, navigating to OTP');
         context.push('/otp');
-      } else {
-        debugPrint('❌ Login failed in controller: ${state.error}');
-        // Optional: show snackbar here if not shown by state listener
       }
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -65,52 +62,110 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final state = ref.watch(authControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Welcome to RiderMatch',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 32),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.number,
-              maxLength: 10,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Mobile Number',
-                border: OutlineInputBorder(),
-                prefixText: '+91 ',
-                hintText: '9876543210',
-                counterText: '',
-                helperText: 'Enter 10-digit mobile number',
+      body: Stack(
+        children: [
+          // Background Gradient
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: AppColors.primaryGradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-            const SizedBox(height: 16),
-            if (state.isLoading)
-              const CircularProgressIndicator()
-            else
-              ElevatedButton(
-                onPressed: _onLogin,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
+          ),
+          // Content
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    // Logo or Title
+                    const SizedBox(height: 40),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.motorcycle,
+                        size: 64,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'RiderMatch',
+                      style: AppTypography.header.copyWith(
+                        color: Colors.white,
+                        fontSize: 32,
+                      ),
+                    ),
+                    Text(
+                      'Find your perfect riding buddy',
+                      style: AppTypography.body.copyWith(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 60),
+                    // Login Card
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: AppColors.softShadow,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.number,
+                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              labelText: 'enter mobile number to get started',
+                              prefixText: '+91 ',
+                              hintText: '9876543210',
+                              counterText: '',
+                              prefixStyle: AppTypography.body.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          if (state.isLoading)
+                            const Center(child: CircularProgressIndicator())
+                          else
+                            GradientButton(
+                              text: 'Send OTP',
+                              onPressed: _onLogin,
+                              gradient: AppColors.accentGradient,
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (state.hasError)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Text(
+                          '${state.error}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
                 ),
-                child: const Text('Send OTP'),
               ),
-            if (state.hasError)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Text(
-                  'Error: ${state.error}',
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

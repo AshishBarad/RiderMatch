@@ -23,6 +23,11 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Stream<User?> watchCurrentUser() {
+    return remoteDataSource.watchCurrentUser();
+  }
+
+  @override
   Future<void> logout() async {
     return remoteDataSource.logout();
   }

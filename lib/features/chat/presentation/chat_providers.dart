@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/chat_message.dart';
 import '../data/repositories/chat_repository_impl.dart';
-import '../../../core/services/notification_service.dart';
 import '../../ride/presentation/ride_providers.dart';
 import '../../auth/domain/entities/user.dart';
 import '../../profile/presentation/profile_providers.dart';
@@ -40,12 +39,12 @@ class RideChatNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String> {
     String? repliedToSenderName,
   }) async {
     final message = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: '', // Will be set by repository
       rideId: arg,
       senderId: senderId,
       senderName: senderId == 'mock_user_123'
           ? 'Ashish'
-          : 'Rider', // Simulation
+          : 'Rider', // Simulation for now
       text: text,
       timestamp: DateTime.now(),
       repliedToId: repliedToId,
@@ -53,47 +52,11 @@ class RideChatNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String> {
       repliedToSenderName: repliedToSenderName,
     );
 
-    // Optimistic update
-    final previousState = state;
-    if (state.hasValue) {
-      state = AsyncData([...state.value!, message]);
-    }
-
     try {
       await ref.read(chatRepositoryProvider).sendMessage(message);
-
-      // Simulate "everyone in group gets notified" - other users receive it
-      // And also simulate a reply from someone else after 2 seconds
-      _simulateIncomingMessage();
     } catch (e) {
-      state = previousState; // Rollback
       rethrow;
     }
-  }
-
-  void _simulateIncomingMessage() {
-    Future.delayed(const Duration(seconds: 4), () async {
-      final reply = ChatMessage(
-        id: 'reply_${DateTime.now().millisecondsSinceEpoch}',
-        rideId: arg,
-        senderId: 'mock_user_2',
-        senderName: 'Jane Smith',
-        text: 'Got it! See you there. 👍',
-        timestamp: DateTime.now(),
-      );
-
-      // Add to repository (which will push to stream -> our builds)
-      await ref.read(chatRepositoryProvider).sendMessage(reply);
-
-      // Trigger notification service
-      ref
-          .read(notificationServiceProvider.notifier)
-          .showNotification(
-            title: 'Jane Smith (Ride Group)',
-            body: 'Got it! See you there. 👍',
-            rideId: arg,
-          );
-    });
   }
 }
 

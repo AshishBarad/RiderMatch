@@ -43,6 +43,11 @@ _$RideImpl _$$RideImplFromJson(Map<String, dynamic> json) => _$RideImpl(
           ?.map((e) => e as String)
           .toList() ??
       const [],
+  stops:
+      (json['stops'] as List<dynamic>?)
+          ?.map((e) => RideStop.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const [],
 );
 
 Map<String, dynamic> _$$RideImplToJson(_$RideImpl instance) =>
@@ -67,4 +72,5 @@ Map<String, dynamic> _$$RideImplToJson(_$RideImpl instance) =>
       'participantIds': instance.participantIds,
       'invitedUserIds': instance.invitedUserIds,
       'participantGenders': instance.participantGenders,
+      'stops': instance.stops,
     };

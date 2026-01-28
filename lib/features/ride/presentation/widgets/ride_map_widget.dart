@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../domain/entities/ride.dart';
@@ -25,6 +27,14 @@ class _RideMapWidgetState extends State<RideMapWidget> {
   void initState() {
     super.initState();
     _createMarkers();
+  }
+
+  @override
+  void didUpdateWidget(RideMapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.ride != oldWidget.ride) {
+      _createMarkers();
+    }
   }
 
   void _createMarkers() {
@@ -55,13 +65,26 @@ class _RideMapWidgetState extends State<RideMapWidget> {
           infoWindow: InfoWindow(title: 'End: ${widget.ride.toLocation}'),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
+        // Add intermediate stop markers
+        ...widget.ride.stops.asMap().entries.map((entry) {
+          final index = entry.key;
+          final stop = entry.value;
+          return Marker(
+            markerId: MarkerId('stop_$index'),
+            position: LatLng(stop.lat, stop.lng),
+            infoWindow: InfoWindow(title: 'Stop ${index + 1}: ${stop.address}'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueYellow,
+            ),
+          );
+        }),
       };
 
       _polylines = {
         Polyline(
           polylineId: const PolylineId('route'),
           points: routePoints,
-          color: Colors.blue,
+          color: const Color(0xFF2DD4BF), // primaryAqua
           width: 5,
         ),
       };
@@ -140,6 +163,13 @@ class _RideMapWidgetState extends State<RideMapWidget> {
             });
           }
         },
+        gestureRecognizers: widget.isInteractive
+            ? {
+                Factory<OneSequenceGestureRecognizer>(
+                  () => EagerGestureRecognizer(),
+                ),
+              }
+            : const <Factory<OneSequenceGestureRecognizer>>{},
       ),
     );
   }

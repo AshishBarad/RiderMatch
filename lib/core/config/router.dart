@@ -18,6 +18,7 @@ import '../../features/auth/presentation/auth_providers.dart';
 import '../../features/ride/presentation/notification_center_screen.dart';
 import '../../features/chat/presentation/direct_chats_screen.dart';
 import '../../features/chat/presentation/direct_chat_conversation_screen.dart';
+import '../../features/chat/presentation/ride_chat_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = RouterNotifier(ref);
@@ -93,6 +94,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final chatId = state.pathParameters['chatId']!;
           return DirectChatConversationScreen(chatId: chatId);
+        },
+      ),
+      GoRoute(
+        path: '/ride-chat/:rideId',
+        builder: (context, state) {
+          final rideId = state.pathParameters['rideId']!;
+          return RideChatScreen(rideId: rideId);
         },
       ),
     ],

@@ -15,6 +15,11 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
+  Stream<User?> watchUserProfile(String userId) {
+    return remoteDataSource.watchUserProfile(userId);
+  }
+
+  @override
   Future<void> updateProfile(User user) async {
     return remoteDataSource.updateUserProfile(user);
   }

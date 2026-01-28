@@ -42,6 +42,7 @@ mixin _$Ride {
   List<String> get participantIds => throw _privateConstructorUsedError;
   List<String> get invitedUserIds => throw _privateConstructorUsedError;
   List<String> get participantGenders => throw _privateConstructorUsedError;
+  List<RideStop> get stops => throw _privateConstructorUsedError;
 
   /// Serializes this Ride to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -78,6 +79,7 @@ abstract class $RideCopyWith<$Res> {
     List<String> participantIds,
     List<String> invitedUserIds,
     List<String> participantGenders,
+    List<RideStop> stops,
   });
 }
 
@@ -116,6 +118,7 @@ class _$RideCopyWithImpl<$Res, $Val extends Ride>
     Object? participantIds = null,
     Object? invitedUserIds = null,
     Object? participantGenders = null,
+    Object? stops = null,
   }) {
     return _then(
       _value.copyWith(
@@ -199,6 +202,10 @@ class _$RideCopyWithImpl<$Res, $Val extends Ride>
                 ? _value.participantGenders
                 : participantGenders // ignore: cast_nullable_to_non_nullable
                       as List<String>,
+            stops: null == stops
+                ? _value.stops
+                : stops // ignore: cast_nullable_to_non_nullable
+                      as List<RideStop>,
           )
           as $Val,
     );
@@ -234,6 +241,7 @@ abstract class _$$RideImplCopyWith<$Res> implements $RideCopyWith<$Res> {
     List<String> participantIds,
     List<String> invitedUserIds,
     List<String> participantGenders,
+    List<RideStop> stops,
   });
 }
 
@@ -269,6 +277,7 @@ class __$$RideImplCopyWithImpl<$Res>
     Object? participantIds = null,
     Object? invitedUserIds = null,
     Object? participantGenders = null,
+    Object? stops = null,
   }) {
     return _then(
       _$RideImpl(
@@ -352,6 +361,10 @@ class __$$RideImplCopyWithImpl<$Res>
             ? _value._participantGenders
             : participantGenders // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        stops: null == stops
+            ? _value._stops
+            : stops // ignore: cast_nullable_to_non_nullable
+                  as List<RideStop>,
       ),
     );
   }
@@ -381,10 +394,12 @@ class _$RideImpl implements _Ride {
     final List<String> participantIds = const [],
     final List<String> invitedUserIds = const [],
     final List<String> participantGenders = const [],
+    final List<RideStop> stops = const [],
   }) : _joinRequestIds = joinRequestIds,
        _participantIds = participantIds,
        _invitedUserIds = invitedUserIds,
-       _participantGenders = participantGenders;
+       _participantGenders = participantGenders,
+       _stops = stops;
 
   factory _$RideImpl.fromJson(Map<String, dynamic> json) =>
       _$$RideImplFromJson(json);
@@ -466,9 +481,18 @@ class _$RideImpl implements _Ride {
     return EqualUnmodifiableListView(_participantGenders);
   }
 
+  final List<RideStop> _stops;
+  @override
+  @JsonKey()
+  List<RideStop> get stops {
+    if (_stops is EqualUnmodifiableListView) return _stops;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_stops);
+  }
+
   @override
   String toString() {
-    return 'Ride(id: $id, creatorId: $creatorId, creatorGender: $creatorGender, title: $title, description: $description, fromLocation: $fromLocation, fromLat: $fromLat, fromLng: $fromLng, toLocation: $toLocation, toLat: $toLat, toLng: $toLng, dateTime: $dateTime, validDistanceKm: $validDistanceKm, difficulty: $difficulty, encodedPolyline: $encodedPolyline, isPrivate: $isPrivate, joinRequestIds: $joinRequestIds, participantIds: $participantIds, invitedUserIds: $invitedUserIds, participantGenders: $participantGenders)';
+    return 'Ride(id: $id, creatorId: $creatorId, creatorGender: $creatorGender, title: $title, description: $description, fromLocation: $fromLocation, fromLat: $fromLat, fromLng: $fromLng, toLocation: $toLocation, toLat: $toLat, toLng: $toLng, dateTime: $dateTime, validDistanceKm: $validDistanceKm, difficulty: $difficulty, encodedPolyline: $encodedPolyline, isPrivate: $isPrivate, joinRequestIds: $joinRequestIds, participantIds: $participantIds, invitedUserIds: $invitedUserIds, participantGenders: $participantGenders, stops: $stops)';
   }
 
   @override
@@ -517,7 +541,8 @@ class _$RideImpl implements _Ride {
             const DeepCollectionEquality().equals(
               other._participantGenders,
               _participantGenders,
-            ));
+            ) &&
+            const DeepCollectionEquality().equals(other._stops, _stops));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -544,6 +569,7 @@ class _$RideImpl implements _Ride {
     const DeepCollectionEquality().hash(_participantIds),
     const DeepCollectionEquality().hash(_invitedUserIds),
     const DeepCollectionEquality().hash(_participantGenders),
+    const DeepCollectionEquality().hash(_stops),
   ]);
 
   /// Create a copy of Ride
@@ -582,6 +608,7 @@ abstract class _Ride implements Ride {
     final List<String> participantIds,
     final List<String> invitedUserIds,
     final List<String> participantGenders,
+    final List<RideStop> stops,
   }) = _$RideImpl;
 
   factory _Ride.fromJson(Map<String, dynamic> json) = _$RideImpl.fromJson;
@@ -626,6 +653,8 @@ abstract class _Ride implements Ride {
   List<String> get invitedUserIds;
   @override
   List<String> get participantGenders;
+  @override
+  List<RideStop> get stops;
 
   /// Create a copy of Ride
   /// with the given fields replaced by the non-null parameter values.

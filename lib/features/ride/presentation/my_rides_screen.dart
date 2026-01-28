@@ -4,9 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../domain/entities/ride.dart';
 import 'ride_providers.dart';
-import '../../auth/presentation/auth_providers.dart';
 import '../../../../core/utils/error_handler.dart';
-import 'package:flutter/foundation.dart';
 
 class MyRidesScreen extends ConsumerStatefulWidget {
   const MyRidesScreen({super.key});
@@ -17,106 +15,91 @@ class MyRidesScreen extends ConsumerStatefulWidget {
 
 class _MyRidesScreenState extends ConsumerState<MyRidesScreen> {
   Future<void> _refresh() async {
-    setState(() {}); // Triggers FutureBuilder to rerun
+    ref.invalidate(createdRidesProvider);
+    ref.invalidate(joinedRidesProvider);
+    // Wait for the providers to refresh
+    await ref.read(createdRidesProvider.future);
+    await ref.read(joinedRidesProvider.future);
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
-    final userId = authState.value?.id;
-
-    if (kDebugMode) {
-      print('DEBUG: MyRidesScreen build. UserId: $userId');
-    }
-
-    if (userId == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('My Rides')),
-        body: const Center(child: Text('Please log in to view your rides')),
-      );
-    }
+    final createdRidesAsync = ref.watch(createdRidesProvider);
+    final joinedRidesAsync = ref.watch(joinedRidesProvider);
+    final now = DateTime.now();
 
     return Scaffold(
       appBar: AppBar(title: const Text('My Rides')),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: FutureBuilder<List<List<Ride>>>(
-          future: Future.wait([
-            ref.read(getCreatedRidesUseCaseProvider)(userId),
-            ref.read(getJoinedRidesUseCaseProvider)(userId),
-          ]),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              if (kDebugMode) {
-                print('DEBUG: MyRidesScreen error: ${snapshot.error}');
-              }
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height - 200,
-                  child: Center(
-                    child: Text(ErrorHandler.getErrorMessage(snapshot.error!)),
-                  ),
-                ),
-              );
-            }
-
-            final createdRides = snapshot.data?[0] ?? [];
-            final joinedRides = snapshot.data?[1] ?? [];
-
-            // Sort client-side (since we removed Firestore orderBy to fix index error)
-            createdRides.sort((a, b) => b.dateTime.compareTo(a.dateTime));
-            joinedRides.sort((a, b) => b.dateTime.compareTo(a.dateTime));
-
-            if (createdRides.isEmpty && joinedRides.isEmpty) {
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height - 200,
-                  child: const Center(
-                    child: Text(
-                      'No ride data found. Create a ride to get started!',
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            if (kDebugMode) {
-              print(
-                'DEBUG: Found ${createdRides.length} created rides and ${joinedRides.length} joined rides',
-              );
-            }
-
-            return SingleChildScrollView(
+        child: createdRidesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height - 200,
+              child: Center(child: Text(ErrorHandler.getErrorMessage(err))),
+            ),
+          ),
+          data: (createdRides) => joinedRidesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (createdRides.isNotEmpty)
-                    _buildRideSection(
-                      context,
-                      'Created Rides',
-                      createdRides,
-                      true,
-                    ),
-                  if (createdRides.isNotEmpty && joinedRides.isNotEmpty)
-                    const SizedBox(height: 32),
-                  if (joinedRides.isNotEmpty)
-                    _buildRideSection(
-                      context,
-                      'Ride History (Joined)',
-                      joinedRides,
-                      false,
-                    ),
-                ],
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height - 200,
+                child: Center(child: Text(ErrorHandler.getErrorMessage(err))),
               ),
-            );
-          },
+            ),
+            data: (joinedRides) {
+              final sortedCreated = [...createdRides]
+                ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+
+              // Filter to show only past joined rides
+              final sortedJoined =
+                  joinedRides.where((r) => r.dateTime.isBefore(now)).toList()
+                    ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+
+              if (sortedCreated.isEmpty && sortedJoined.isEmpty) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height - 200,
+                    child: const Center(
+                      child: Text(
+                        'No ride data found. Create a ride to get started!',
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (sortedCreated.isNotEmpty)
+                      _buildRideSection(
+                        context,
+                        'Created Rides',
+                        sortedCreated,
+                        true,
+                      ),
+                    if (sortedCreated.isNotEmpty && sortedJoined.isNotEmpty)
+                      const SizedBox(height: 32),
+                    if (sortedJoined.isNotEmpty)
+                      _buildRideSection(
+                        context,
+                        'Ride History (Joined)',
+                        sortedJoined,
+                        false,
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -171,18 +154,20 @@ class _MyRidesScreenState extends ConsumerState<MyRidesScreen> {
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isPast ? Colors.grey[200] : Colors.blue[50],
+                color: isPast ? Colors.grey[100] : Colors.blue[50],
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                isPast ? Icons.history : Icons.event,
-                color: isPast ? Colors.grey[600] : Colors.blue[700],
+                isPast ? Icons.history_outlined : Icons.event_outlined,
+                color: isPast ? Colors.grey[600] : Colors.blue[600],
+                size: 20,
               ),
             ),
             const SizedBox(width: 16),
@@ -190,25 +175,42 @@ class _MyRidesScreenState extends ConsumerState<MyRidesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    ride.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          ride.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ),
+                      if (ride.isPrivate)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Icon(
+                            Icons.lock_outline,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
                     dateStr,
                     style: TextStyle(
-                      color: isPast ? Colors.grey : Colors.blue[700],
+                      color: isPast ? Colors.grey[600] : Colors.blue[700],
                       fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'To: ${ride.toLocation}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
                   ),
                 ],
               ),

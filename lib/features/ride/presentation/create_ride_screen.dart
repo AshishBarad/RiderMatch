@@ -9,6 +9,7 @@ import 'location_picker_screen.dart';
 import 'widgets/places_autocomplete_field.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../../../core/utils/error_handler.dart';
+import '../domain/entities/ride_stop.dart';
 
 class CreateRideScreen extends ConsumerStatefulWidget {
   final Ride? rideToEdit;
@@ -36,6 +37,7 @@ class _CreateRideScreenState extends ConsumerState<CreateRideScreen> {
   String _encodedPolyline = '';
 
   bool _isPrivate = false;
+  List<RideStop> _stops = [];
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _CreateRideScreenState extends ConsumerState<CreateRideScreen> {
       _toLng = ride.toLng;
       _encodedPolyline = ride.encodedPolyline;
       _isPrivate = ride.isPrivate;
+      _stops = List.from(ride.stops);
     }
   }
 
@@ -79,10 +82,11 @@ class _CreateRideScreenState extends ConsumerState<CreateRideScreen> {
     // Show loading?
     final start = LatLng(_fromLat, _fromLng);
     final end = LatLng(_toLat, _toLng);
+    final waypoints = _stops.map((s) => LatLng(s.lat, s.lng)).toList();
 
     final routeInfo = await ref
         .read(getRideRouteUseCaseProvider)
-        .call(start, end);
+        .call(start, end, waypoints: waypoints);
 
     if (routeInfo != null && mounted) {
       setState(() {
@@ -163,6 +167,7 @@ class _CreateRideScreenState extends ConsumerState<CreateRideScreen> {
         isPrivate: _isPrivate,
         participantIds: widget.rideToEdit?.participantIds ?? [currentUserId],
         joinRequestIds: widget.rideToEdit?.joinRequestIds ?? [],
+        stops: _stops,
       );
 
       final notifier = ref.read(rideControllerProvider.notifier);
@@ -362,6 +367,8 @@ class _CreateRideScreenState extends ConsumerState<CreateRideScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              _buildStopsSection(),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -456,5 +463,134 @@ class _CreateRideScreenState extends ConsumerState<CreateRideScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildStopsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Intermediate Stops',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            TextButton.icon(
+              onPressed: _addStop,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Stop'),
+            ),
+          ],
+        ),
+        if (_stops.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'No intermediate stops added yet.',
+              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _stops.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final stop = _stops[index];
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.red, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Stop ${index + 1}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            stop.address,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit,
+                        size: 20,
+                        color: Colors.blue,
+                      ),
+                      onPressed: () => _editStop(index),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete,
+                        size: 20,
+                        color: Colors.red,
+                      ),
+                      onPressed: () => _removeStop(index),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  void _addStop() async {
+    final result = await context.push('/location-picker');
+    if (result != null && result is LocationPickerResult) {
+      setState(() {
+        _stops.add(
+          RideStop(
+            address: result.address,
+            lat: result.latLng.latitude,
+            lng: result.latLng.longitude,
+          ),
+        );
+      });
+      _calculateRoute();
+    }
+  }
+
+  void _editStop(int index) async {
+    // In a real app, you might want to pass the initial location to the picker.
+    // For now, we'll just open the picker and replace the stop.
+    final result = await context.push('/location-picker');
+    if (result != null && result is LocationPickerResult) {
+      setState(() {
+        _stops[index] = RideStop(
+          address: result.address,
+          lat: result.latLng.latitude,
+          lng: result.latLng.longitude,
+        );
+      });
+      _calculateRoute();
+    }
+  }
+
+  void _removeStop(int index) {
+    setState(() {
+      _stops.removeAt(index);
+    });
+    _calculateRoute();
   }
 }

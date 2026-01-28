@@ -5,6 +5,11 @@ import 'package:intl/intl.dart';
 import 'direct_chat_providers.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../../../../core/utils/error_handler.dart';
+import '../../ride/presentation/ride_providers.dart';
+import '../../ride/domain/entities/ride.dart';
+import '../../../core/presentation/theme/app_colors.dart';
+import '../../../core/presentation/theme/app_typography.dart';
+import '../../auth/presentation/auth_providers.dart';
 
 class DirectChatsScreen extends ConsumerStatefulWidget {
   const DirectChatsScreen({super.key});
@@ -16,7 +21,7 @@ class DirectChatsScreen extends ConsumerStatefulWidget {
 class _DirectChatsScreenState extends ConsumerState<DirectChatsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final String _currentUserId = 'mock_user_123';
+  // No hardcoded ID here anymore
 
   @override
   void initState() {
@@ -40,41 +45,46 @@ class _DirectChatsScreenState extends ConsumerState<DirectChatsScreen>
           tabs: [
             const Tab(text: 'Chats'),
             Tab(
-              child: FutureBuilder(
-                future: ref.read(getChatRequestsUseCaseProvider)(
-                  _currentUserId,
-                ),
-                builder: (context, snapshot) {
-                  final count = snapshot.data?.length ?? 0;
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Requests'),
-                      if (count > 0) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$count',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+              child: ref
+                  .watch(
+                    chatRequestsProvider(
+                      ref.watch(authControllerProvider).value?.id ?? '',
+                    ),
+                  )
+                  .when(
+                    data: (requests) {
+                      final count = requests.length;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Requests'),
+                          if (count > 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  );
-                },
-              ),
+                          ],
+                        ],
+                      );
+                    },
+                    loading: () => const Text('Requests'),
+                    error: (_, __) => const Text('Requests'),
+                  ),
             ),
           ],
         ),
@@ -87,118 +97,160 @@ class _DirectChatsScreenState extends ConsumerState<DirectChatsScreen>
   }
 
   Widget _buildChatsTab() {
-    return FutureBuilder(
-      future: ref.read(getMyChatsUseCaseProvider)(_currentUserId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final userId = ref.watch(authControllerProvider).value?.id ?? '';
+    final personalChatsAsync = ref.watch(myChatsProvider(userId));
+    final createdRidesAsync = ref.watch(createdRidesProvider);
+    final joinedRidesAsync = ref.watch(joinedRidesProvider);
 
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(ErrorHandler.getErrorMessage(snapshot.error!)),
-          );
-        }
-
-        final chats = snapshot.data ?? [];
-
-        if (chats.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.chat_bubble_outline,
-                  size: 64,
-                  color: Colors.grey[300],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No conversations yet',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        // Personal Chats Section
+        _buildSectionHeader(
+          title: 'PERSONAL CHATS',
+          icon: Icons.person_outline,
+          initiallyExpanded: true,
+          child: personalChatsAsync.when(
+            data: (chats) => _buildPersonalChatsList(chats),
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
             ),
-          );
-        }
+            error: (e, _) =>
+                Center(child: Text(ErrorHandler.getErrorMessage(e))),
+          ),
+        ),
 
-        return ListView.separated(
-          itemCount: chats.length,
-          separatorBuilder: (context, index) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final chat = chats[index];
-            final otherUserId = chat.getOtherParticipantId(_currentUserId);
-            final unreadCount = chat.getUnreadCountForUser(_currentUserId);
+        const SizedBox(height: 8),
 
-            return FutureBuilder(
-              future: ref.read(getUserProfileUseCaseProvider)(otherUserId),
-              builder: (context, userSnapshot) {
-                final user = userSnapshot.data;
+        // Ride Chats Section
+        _buildSectionHeader(
+          title: 'RIDE CHATS',
+          icon: Icons.motorcycle_outlined,
+          initiallyExpanded: true,
+          child: _buildRideChatsList(createdRidesAsync, joinedRidesAsync),
+        ),
+      ],
+    );
+  }
 
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: user?.photoUrl != null
-                        ? NetworkImage(user!.photoUrl!)
-                        : null,
-                    child: user?.photoUrl == null
-                        ? const Icon(Icons.person)
-                        : null,
-                  ),
-                  title: Text(
-                    user?.fullName ?? 'User',
-                    style: TextStyle(
-                      fontWeight: unreadCount > 0
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+  Widget _buildSectionHeader({
+    required String title,
+    required IconData icon,
+    required Widget child,
+    bool initiallyExpanded = true,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        leading: Icon(icon, color: AppColors.primaryAqua, size: 20),
+        title: Text(
+          title,
+          style: AppTypography.title.copyWith(
+            fontSize: 13,
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.w900,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        children: [child],
+      ),
+    );
+  }
+
+  Widget _buildPersonalChatsList(List<dynamic> chats) {
+    if (chats.isEmpty) {
+      return _buildEmptySection('No personal chats yet');
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: chats.length,
+      separatorBuilder: (context, index) =>
+          const Divider(height: 1, indent: 72),
+      itemBuilder: (context, index) {
+        final chat = chats[index];
+        final userId = ref.read(authControllerProvider).value?.id ?? '';
+        final otherUserId = chat.getOtherParticipantId(userId);
+        final unreadCount = chat.getUnreadCountForUser(userId);
+
+        return FutureBuilder(
+          future: ref.read(getUserProfileUseCaseProvider)(otherUserId),
+          builder: (context, userSnapshot) {
+            final user = userSnapshot.data;
+
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 4,
+              ),
+              leading: CircleAvatar(
+                radius: 28,
+                backgroundColor: AppColors.primaryAqua.withValues(alpha: 0.1),
+                backgroundImage: user?.photoUrl != null
+                    ? NetworkImage(user!.photoUrl!)
+                    : null,
+                child: user?.photoUrl == null
+                    ? const Icon(Icons.person, color: AppColors.primaryAqua)
+                    : null,
+              ),
+              title: Text(
+                user?.fullName ?? 'User',
+                style: AppTypography.title.copyWith(
+                  fontSize: 16,
+                  fontWeight: unreadCount > 0
+                      ? FontWeight.w800
+                      : FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                chat.lastMessage ?? 'No messages yet',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.body.copyWith(
+                  fontSize: 14,
+                  color: unreadCount > 0
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                ),
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (chat.lastMessageTime != null)
+                    Text(
+                      _formatDate(chat.lastMessageTime!),
+                      style: AppTypography.caption,
                     ),
-                  ),
-                  subtitle: Text(
-                    chat.lastMessage ?? 'No messages yet',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: unreadCount > 0
-                          ? FontWeight.w600
-                          : FontWeight.normal,
+                  if (unreadCount > 0) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryAqua,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (chat.lastMessageTime != null)
-                        Text(
-                          DateFormat('MMM d').format(chat.lastMessageTime!),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      if (unreadCount > 0) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: Colors.blue,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '$unreadCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  onTap: () {
-                    context.push('/direct-chat/${chat.id}');
-                  },
-                );
-              },
+                  ],
+                ],
+              ),
+              onTap: () => context.push('/direct-chat/${chat.id}'),
             );
           },
         );
@@ -206,22 +258,128 @@ class _DirectChatsScreenState extends ConsumerState<DirectChatsScreen>
     );
   }
 
+  Widget _buildRideChatsList(
+    AsyncValue<List<Ride>> createdRides,
+    AsyncValue<List<Ride>> joinedRides,
+  ) {
+    return createdRides.when(
+      data: (created) {
+        return joinedRides.when(
+          data: (joined) {
+            // Combine and deduplicate
+            final allRidesMap = <String, Ride>{};
+            for (final r in created) {
+              allRidesMap[r.id] = r;
+            }
+            for (final r in joined) {
+              allRidesMap[r.id] = r;
+            }
+            final allRides = allRidesMap.values.toList()
+              ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+
+            if (allRides.isEmpty) {
+              return _buildEmptySection('No ride chats yet');
+            }
+
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: allRides.length,
+              separatorBuilder: (context, index) =>
+                  const Divider(height: 1, indent: 72),
+              itemBuilder: (context, index) {
+                final ride = allRides[index];
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  leading: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryAqua.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.group_outlined,
+                      color: AppColors.primaryAqua,
+                      size: 28,
+                    ),
+                  ),
+                  title: Text(
+                    ride.title,
+                    style: AppTypography.title.copyWith(fontSize: 16),
+                  ),
+                  subtitle: Text(
+                    '${ride.toLocation} • Group Chat',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.body.copyWith(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textTertiary,
+                  ),
+                  onTap: () => context.push('/ride-chat/${ride.id}'),
+                );
+              },
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (e, _) => Center(child: Text('Error: $e')),
+        );
+      },
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (e, _) => Center(child: Text('Error: $e')),
+    );
+  }
+
+  Widget _buildEmptySection(String message) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Text(
+          message,
+          style: AppTypography.body.copyWith(color: AppColors.textTertiary),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      return DateFormat('h:mm a').format(date);
+    } else if (difference.inDays < 7) {
+      return DateFormat('EEE').format(date);
+    } else {
+      return DateFormat('MMM d').format(date);
+    }
+  }
+
   Widget _buildRequestsTab() {
-    return FutureBuilder(
-      future: ref.read(getChatRequestsUseCaseProvider)(_currentUserId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final userId = ref.watch(authControllerProvider).value?.id ?? '';
+    final requestsAsync = ref.watch(chatRequestsProvider(userId));
 
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(ErrorHandler.getErrorMessage(snapshot.error!)),
-          );
-        }
-
-        final requests = snapshot.data ?? [];
-
+    return requestsAsync.when(
+      data: (requests) {
         if (requests.isEmpty) {
           return Center(
             child: Column(
@@ -288,8 +446,9 @@ class _DirectChatsScreenState extends ConsumerState<DirectChatsScreen>
                             await ref.read(approveChatRequestUseCaseProvider)(
                               request.id,
                             );
+                            ref.invalidate(chatRequestsProvider(userId));
+                            ref.invalidate(myChatsProvider(userId));
                             if (context.mounted) {
-                              setState(() {});
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Request approved'),
@@ -316,8 +475,8 @@ class _DirectChatsScreenState extends ConsumerState<DirectChatsScreen>
                             await ref.read(rejectChatRequestUseCaseProvider)(
                               request.id,
                             );
+                            ref.invalidate(chatRequestsProvider(userId));
                             if (context.mounted) {
-                              setState(() {});
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Request rejected'),
@@ -346,6 +505,8 @@ class _DirectChatsScreenState extends ConsumerState<DirectChatsScreen>
           },
         );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text(ErrorHandler.getErrorMessage(e))),
     );
   }
 }
