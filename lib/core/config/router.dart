@@ -19,15 +19,20 @@ import '../../features/ride/presentation/notification_center_screen.dart';
 import '../../features/chat/presentation/direct_chats_screen.dart';
 import '../../features/chat/presentation/direct_chat_conversation_screen.dart';
 import '../../features/chat/presentation/ride_chat_screen.dart';
+import '../../features/auth/presentation/splash_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = RouterNotifier(ref);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     refreshListenable: notifier,
     redirect: notifier._redirect,
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/otp', builder: (context, state) => const OtpScreen()),
       GoRoute(path: '/home', builder: (context, state) => const MainScreen()),
@@ -124,8 +129,9 @@ class RouterNotifier extends ChangeNotifier {
     final bool hasUser = authState.value != null;
     final bool isLoggingIn =
         state.matchedLocation == '/login' || state.matchedLocation == '/otp';
+    final bool isSplash = state.matchedLocation == '/splash';
 
-    if (isLoading) return null;
+    if (isSplash || isLoading) return null;
 
     if (hasUser) {
       if (isLoggingIn) return '/home';

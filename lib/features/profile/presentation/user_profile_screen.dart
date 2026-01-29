@@ -10,6 +10,7 @@ import '../../../core/presentation/theme/app_colors.dart';
 import '../../../core/presentation/theme/app_typography.dart';
 import '../../../core/presentation/widgets/profile_avatar.dart';
 import '../../../core/presentation/widgets/section_header.dart';
+import '../../../core/presentation/theme/theme_provider.dart';
 import 'profile_providers.dart';
 
 class UserProfileScreen extends ConsumerWidget {
@@ -25,7 +26,7 @@ class UserProfileScreen extends ConsumerWidget {
     final userAsync = ref.watch(userProfileProvider(userId));
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: userAsync.when(
         data: (user) {
           if (user == null) return const Center(child: Text('User not found'));
@@ -191,6 +192,7 @@ class UserProfileScreen extends ConsumerWidget {
             'Notifications',
             () {},
           ),
+          _buildThemeToggle(context, ref),
           _buildActionTile(Icons.shield_outlined, 'Privacy & Safety', () {}),
           _buildActionTile(Icons.help_outline, 'Help & Support', () {}),
           if (isMe)
@@ -276,13 +278,44 @@ class UserProfileScreen extends ConsumerWidget {
         title,
         style: AppTypography.title.copyWith(
           fontSize: 16,
-          color: isDestructive ? Colors.red : AppColors.textPrimary,
+          color: isDestructive ? Colors.red : null,
         ),
       ),
       trailing: const Icon(
         Icons.chevron_right,
         size: 20,
         color: AppColors.textTertiary,
+      ),
+    );
+  }
+
+  Widget _buildThemeToggle(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.primaryAqua.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          isDark ? Icons.dark_mode : Icons.light_mode,
+          color: AppColors.primaryAqua,
+          size: 20,
+        ),
+      ),
+      title: Text(
+        'Dark Mode',
+        style: AppTypography.title.copyWith(fontSize: 16),
+      ),
+      trailing: Switch.adaptive(
+        value: isDark,
+        activeColor: AppColors.primaryAqua,
+        onChanged: (value) {
+          ref.read(themeProvider.notifier).toggleTheme();
+        },
       ),
     );
   }
