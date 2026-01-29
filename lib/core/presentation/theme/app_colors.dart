@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   // Backgrounds
   static const Color backgroundLight = Color(0xFFF8FAFC);
-  static const Color backgroundDark = Color(0xFF121212); // Rich Charcoal Gray
-  static const Color surfaceDark = Color(0xFF1E1E1E); // Industrial Gray Surface
-  static const Color cardDark = Color(0xFF242424); // Slightly lighter for depth
+  static const Color backgroundDark = Color(0xFF0F172A);
 
   // Teal / Aqua Gradients
   static const List<Color> primaryGradient = [
@@ -39,10 +37,6 @@ class AppColors {
   static const Color textPrimary = Color(0xFF1E293B);
   static const Color textSecondary = Color(0xFF64748B);
   static const Color textTertiary = Color(0xFF94A3B8);
-
-  // Dark Mode Typography
-  static const Color textPrimaryDark = Color(0xFFE2E8F0);
-  static const Color textSecondaryDark = Color(0xFF94A3B8);
   static const Color textOnGradient = Colors.white;
 
   // Accents & Status
