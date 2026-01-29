@@ -19,15 +19,17 @@ import '../../features/ride/presentation/notification_center_screen.dart';
 import '../../features/chat/presentation/direct_chats_screen.dart';
 import '../../features/chat/presentation/direct_chat_conversation_screen.dart';
 import '../../features/chat/presentation/ride_chat_screen.dart';
+import '../../features/auth/presentation/splash_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = RouterNotifier(ref);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/',
     refreshListenable: notifier,
     redirect: notifier._redirect,
     routes: [
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/otp', builder: (context, state) => const OtpScreen()),
       GoRoute(path: '/home', builder: (context, state) => const MainScreen()),

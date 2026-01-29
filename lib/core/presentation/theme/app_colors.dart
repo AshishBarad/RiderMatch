@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Backgrounds
-  static const Color backgroundLight = Color(0xFFF8FAFC);
-  static const Color backgroundDark = Color(0xFF0F172A);
+  // Backgrounds - Light Mode (Darker grays)
+  static const Color backgroundLight = Color(0xFFE5E7EB); // Gray 200
+  static const Color surfaceLight = Color(0xFFF3F4F6); // Gray 100
+  static const Color cardLight = Color(0xFFFFFFFF);
+  static const Color cardBackground = Color(0xFFFFFFFF); // Backward compat
+
+  // Backgrounds - Dark Mode
+  static const Color backgroundDark = Color(0xFF111827); // Gray 900
+  static const Color surfaceDark = Color(0xFF1F2937); // Gray 800
+  static const Color cardDark = Color(0xFF374151); // Gray 700
 
   // Teal / Aqua Gradients
   static const List<Color> primaryGradient = [
@@ -23,20 +30,24 @@ class AppColors {
   static const Color accentOrange = Color(0xFFFB923C);
   static const Color accentCoral = Color(0xFFF87171);
 
-  // Surface & Cards
-  static const Color cardBackground = Colors.white;
-  static const Color glassBackground = Color(0x1AFFFFFF);
-
   // Shadows
-  static const Color shadowColor = Color(0x1A000000);
+  static const Color shadowLight = Color(0x1A000000);
+  static const Color shadowDark = Color(0x40000000);
+
   static List<BoxShadow> softShadow = [
-    BoxShadow(color: shadowColor, blurRadius: 20, offset: const Offset(0, 10)),
+    const BoxShadow(color: shadowLight, blurRadius: 20, offset: Offset(0, 10)),
   ];
 
-  // Typography Colors
-  static const Color textPrimary = Color(0xFF1E293B);
-  static const Color textSecondary = Color(0xFF64748B);
-  static const Color textTertiary = Color(0xFF94A3B8);
+  // Typography Colors - Light
+  static const Color textPrimary = Color(0xFF111827); // Gray 900
+  static const Color textSecondary = Color(0xFF6B7280); // Gray 500
+  static const Color textTertiary = Color(0xFF9CA3AF); // Gray 400
+
+  // Typography Colors - Dark
+  static const Color textPrimaryDark = Color(0xFFF9FAFB); // Gray 50
+  static const Color textSecondaryDark = Color(0xFFD1D5DB); // Gray 300
+  static const Color textTertiaryDark = Color(0xFF9CA3AF); // Gray 400
+
   static const Color textOnGradient = Colors.white;
 
   // Accents & Status

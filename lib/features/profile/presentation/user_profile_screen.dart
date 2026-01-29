@@ -10,6 +10,7 @@ import '../../../core/presentation/theme/app_colors.dart';
 import '../../../core/presentation/theme/app_typography.dart';
 import '../../../core/presentation/widgets/profile_avatar.dart';
 import '../../../core/presentation/widgets/section_header.dart';
+import '../../../core/presentation/theme/theme_mode_provider.dart';
 import 'profile_providers.dart';
 
 class UserProfileScreen extends ConsumerWidget {
@@ -175,6 +176,9 @@ class UserProfileScreen extends ConsumerWidget {
     bool isMe,
     dynamic user,
   ) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDarkMode = themeMode == ThemeMode.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -191,6 +195,8 @@ class UserProfileScreen extends ConsumerWidget {
             'Notifications',
             () {},
           ),
+          // Dark Mode Toggle
+          if (isMe) _buildDarkModeToggle(context, ref, isDarkMode),
           _buildActionTile(Icons.shield_outlined, 'Privacy & Safety', () {}),
           _buildActionTile(Icons.help_outline, 'Help & Support', () {}),
           if (isMe)
@@ -303,6 +309,40 @@ class UserProfileScreen extends ConsumerWidget {
             child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDarkModeToggle(
+    BuildContext context,
+    WidgetRef ref,
+    bool isDarkMode,
+  ) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isDarkMode
+              ? AppColors.primaryAqua.withValues(alpha: 0.2)
+              : AppColors.warning.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          isDarkMode ? Icons.dark_mode : Icons.light_mode,
+          color: isDarkMode ? AppColors.primaryAqua : AppColors.warning,
+          size: 20,
+        ),
+      ),
+      title: Text(
+        'Dark Mode',
+        style: AppTypography.title.copyWith(fontSize: 16),
+      ),
+      trailing: Switch(
+        value: isDarkMode,
+        onChanged: (_) {
+          ref.read(themeModeProvider.notifier).toggleTheme();
+        },
+        activeColor: AppColors.primaryAqua,
       ),
     );
   }
