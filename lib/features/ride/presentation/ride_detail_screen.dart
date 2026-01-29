@@ -12,6 +12,7 @@ import '../../../core/presentation/theme/app_colors.dart';
 import '../../../core/presentation/theme/app_typography.dart';
 import '../../../core/presentation/widgets/gradient_button.dart';
 import '../../../core/presentation/widgets/profile_avatar.dart';
+import '../../profile/presentation/profile_providers.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 
@@ -329,7 +330,28 @@ class RideDetailScreen extends ConsumerWidget {
                   ),
                 );
               }
-              return ProfileAvatar(radius: 22); // Generic for now
+
+              final participantId = ride.participantIds[index];
+              return Consumer(
+                builder: (context, ref, _) {
+                  final userAsync = ref.watch(
+                    userProfileProvider(participantId),
+                  );
+                  return userAsync.when(
+                    data: (user) => ProfileAvatar(
+                      imageUrl: user?.photoUrl,
+                      radius: 22,
+                      onTap: () {
+                        if (user != null) {
+                          context.push('/user-profile/${user.id}', extra: user);
+                        }
+                      },
+                    ),
+                    loading: () => const ProfileAvatar(radius: 22),
+                    error: (_, __) => const ProfileAvatar(radius: 22),
+                  );
+                },
+              );
             },
           ),
         ),
@@ -370,12 +392,34 @@ class RideDetailScreen extends ConsumerWidget {
       children: [
         Expanded(
           child: GradientButton(
-            text: isParticipant ? 'Open Chat' : 'Join Ride',
-            onPressed: () {
-              if (isParticipant || isOwner) {
+            text: isParticipant
+                ? 'Open Chat'
+                : (ride.isPrivate ? 'Request to Join' : 'Join Ride'),
+            onPressed: () async {
+              if (isParticipant) {
                 context.push('/ride-chat/${ride.id}');
               } else {
-                // Join logic
+                final authState = ref.read(authControllerProvider);
+                final userId = authState.value?.id;
+
+                if (userId != null) {
+                  await ref
+                      .read(rideControllerProvider.notifier)
+                      .requestToJoin(ride.id, userId);
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ride.isPrivate
+                              ? 'Join request sent!'
+                              : 'Joined ride successfully!',
+                        ),
+                        backgroundColor: AppColors.primaryAqua,
+                      ),
+                    );
+                  }
+                }
               }
             },
             gradient: isParticipant

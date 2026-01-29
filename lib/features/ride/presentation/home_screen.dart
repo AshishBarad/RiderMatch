@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'ride_providers.dart';
+import '../../auth/presentation/auth_providers.dart';
 import '../../../core/presentation/widgets/ride_card.dart';
 import '../../../core/presentation/widgets/loading_skeleton.dart';
 import '../../../core/presentation/widgets/empty_state_widget.dart';
@@ -150,7 +151,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     distance:
                                         '${ride.validDistanceKm.toStringAsFixed(1)} km',
                                     date: 'Today',
-                                    onJoin: () {},
+                                    onJoin: () async {
+                                      final authState = ref.read(
+                                        authControllerProvider,
+                                      );
+                                      final userId = authState.value?.id;
+                                      if (userId != null) {
+                                        await ref
+                                            .read(
+                                              rideControllerProvider.notifier,
+                                            )
+                                            .requestToJoin(ride.id, userId);
+
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                ride.isPrivate
+                                                    ? 'Join request sent!'
+                                                    : 'Joining ride...',
+                                              ),
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
                                     onTap: () => context.push(
                                       '/ride-detail',
                                       extra: ride,
