@@ -17,15 +17,18 @@ class _MyRidesScreenState extends ConsumerState<MyRidesScreen> {
   Future<void> _refresh() async {
     ref.invalidate(createdRidesProvider);
     ref.invalidate(joinedRidesProvider);
+    ref.invalidate(savedRidesProvider);
     // Wait for the providers to refresh
     await ref.read(createdRidesProvider.future);
     await ref.read(joinedRidesProvider.future);
+    await ref.read(savedRidesProvider.future);
   }
 
   @override
   Widget build(BuildContext context) {
     final createdRidesAsync = ref.watch(createdRidesProvider);
     final joinedRidesAsync = ref.watch(joinedRidesProvider);
+    final savedRidesAsync = ref.watch(savedRidesProvider);
     final now = DateTime.now();
 
     return Scaffold(
@@ -50,55 +53,80 @@ class _MyRidesScreenState extends ConsumerState<MyRidesScreen> {
                 child: Center(child: Text(ErrorHandler.getErrorMessage(err))),
               ),
             ),
-            data: (joinedRides) {
-              final sortedCreated = [...createdRides]
-                ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+            data: (joinedRides) => savedRidesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height - 200,
+                  child: Center(child: Text(ErrorHandler.getErrorMessage(err))),
+                ),
+              ),
+              data: (savedRides) {
+                final sortedCreated = [...createdRides]
+                  ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
 
-              // Filter to show only past joined rides
-              final sortedJoined =
-                  joinedRides.where((r) => r.dateTime.isBefore(now)).toList()
-                    ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+                // Filter to show only past joined rides
+                final sortedJoined =
+                    joinedRides.where((r) => r.dateTime.isBefore(now)).toList()
+                      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
 
-              if (sortedCreated.isEmpty && sortedJoined.isEmpty) {
-                return SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height - 200,
-                    child: const Center(
-                      child: Text(
-                        'No ride data found. Create a ride to get started!',
+                // Sort saved rides by date
+                final sortedSaved = [...savedRides]
+                  ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+
+                if (sortedCreated.isEmpty &&
+                    sortedJoined.isEmpty &&
+                    sortedSaved.isEmpty) {
+                  return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height - 200,
+                      child: const Center(
+                        child: Text(
+                          'No ride data found. Create a ride to get started!',
+                        ),
                       ),
                     ),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (sortedSaved.isNotEmpty) ...[
+                        _buildRideSection(
+                          context,
+                          'Saved Rides',
+                          sortedSaved,
+                          false,
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                      if (sortedCreated.isNotEmpty)
+                        _buildRideSection(
+                          context,
+                          'Created Rides',
+                          sortedCreated,
+                          true,
+                        ),
+                      if (sortedCreated.isNotEmpty && sortedJoined.isNotEmpty)
+                        const SizedBox(height: 32),
+                      if (sortedJoined.isNotEmpty)
+                        _buildRideSection(
+                          context,
+                          'Ride History (Joined)',
+                          sortedJoined,
+                          false,
+                        ),
+                    ],
                   ),
                 );
-              }
-
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (sortedCreated.isNotEmpty)
-                      _buildRideSection(
-                        context,
-                        'Created Rides',
-                        sortedCreated,
-                        true,
-                      ),
-                    if (sortedCreated.isNotEmpty && sortedJoined.isNotEmpty)
-                      const SizedBox(height: 32),
-                    if (sortedJoined.isNotEmpty)
-                      _buildRideSection(
-                        context,
-                        'Ride History (Joined)',
-                        sortedJoined,
-                        false,
-                      ),
-                  ],
-                ),
-              );
-            },
+              },
+            ),
           ),
         ),
       ),

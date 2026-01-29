@@ -40,6 +40,11 @@ _$UserImpl _$$UserImplFromJson(Map<String, dynamic> json) => _$UserImpl(
           ?.map((e) => e as String)
           .toList() ??
       const [],
+  savedRides:
+      (json['savedRides'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
   rideDistancePreference:
       (json['rideDistancePreference'] as num?)?.toDouble() ?? 50.0,
   lastKnownLat: (json['lastKnownLat'] as num?)?.toDouble(),
@@ -69,6 +74,7 @@ Map<String, dynamic> _$$UserImplToJson(_$UserImpl instance) =>
       'followers': instance.followers,
       'following': instance.following,
       'blockedUsers': instance.blockedUsers,
+      'savedRides': instance.savedRides,
       'rideDistancePreference': instance.rideDistancePreference,
       'lastKnownLat': instance.lastKnownLat,
       'lastKnownLng': instance.lastKnownLng,

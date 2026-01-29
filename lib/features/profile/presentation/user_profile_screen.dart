@@ -5,11 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../ride/presentation/ride_providers.dart';
-import '../../../core/presentation/widgets/ride_card.dart';
 import '../../../core/presentation/theme/app_colors.dart';
 import '../../../core/presentation/theme/app_typography.dart';
 import '../../../core/presentation/widgets/profile_avatar.dart';
-import '../../../core/presentation/widgets/section_header.dart';
 import '../../../core/presentation/theme/theme_mode_provider.dart';
 import 'profile_providers.dart';
 
@@ -100,15 +98,6 @@ class UserProfileScreen extends ConsumerWidget {
                   12,
                 ),
                 const SizedBox(height: 32),
-                if (isMe) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: SectionHeader(title: 'My Saved Rides'),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildSavedRidesCarousel(),
-                ],
-                const SizedBox(height: 24),
                 _buildActionsList(context, ref, isMe, displayUser),
                 const SizedBox(height: 100),
               ],
@@ -151,29 +140,6 @@ class UserProfileScreen extends ConsumerWidget {
         ),
         Text(label, style: AppTypography.caption),
       ],
-    );
-  }
-
-  Widget _buildSavedRidesCarousel() {
-    return SizedBox(
-      height: 350, // Increased further to be safe
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 3,
-        itemBuilder: (context, index) {
-          return Container(
-            width: 280,
-            margin: const EdgeInsets.only(right: 12),
-            child: RideCard(
-              rideName: 'Munnar Expedition',
-              distance: '240 km',
-              date: 'Weekend',
-              onTap: () {},
-            ),
-          );
-        },
-      ),
     );
   }
 

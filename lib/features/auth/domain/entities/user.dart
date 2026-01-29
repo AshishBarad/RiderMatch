@@ -27,6 +27,7 @@ class User with _$User {
     @Default([]) List<String> followers,
     @Default([]) List<String> following,
     @Default([]) List<String> blockedUsers,
+    @Default([]) List<String> savedRides,
     @Default(50.0) double rideDistancePreference,
     double? lastKnownLat,
     double? lastKnownLng,

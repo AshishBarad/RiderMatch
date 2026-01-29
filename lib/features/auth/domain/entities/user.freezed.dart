@@ -43,6 +43,7 @@ mixin _$User {
   List<String> get followers => throw _privateConstructorUsedError;
   List<String> get following => throw _privateConstructorUsedError;
   List<String> get blockedUsers => throw _privateConstructorUsedError;
+  List<String> get savedRides => throw _privateConstructorUsedError;
   double get rideDistancePreference => throw _privateConstructorUsedError;
   double? get lastKnownLat => throw _privateConstructorUsedError;
   double? get lastKnownLng => throw _privateConstructorUsedError;
@@ -83,6 +84,7 @@ abstract class $UserCopyWith<$Res> {
     List<String> followers,
     List<String> following,
     List<String> blockedUsers,
+    List<String> savedRides,
     double rideDistancePreference,
     double? lastKnownLat,
     double? lastKnownLng,
@@ -125,6 +127,7 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? followers = null,
     Object? following = null,
     Object? blockedUsers = null,
+    Object? savedRides = null,
     Object? rideDistancePreference = null,
     Object? lastKnownLat = freezed,
     Object? lastKnownLng = freezed,
@@ -216,6 +219,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
                 ? _value.blockedUsers
                 : blockedUsers // ignore: cast_nullable_to_non_nullable
                       as List<String>,
+            savedRides: null == savedRides
+                ? _value.savedRides
+                : savedRides // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
             rideDistancePreference: null == rideDistancePreference
                 ? _value.rideDistancePreference
                 : rideDistancePreference // ignore: cast_nullable_to_non_nullable
@@ -264,6 +271,7 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
     List<String> followers,
     List<String> following,
     List<String> blockedUsers,
+    List<String> savedRides,
     double rideDistancePreference,
     double? lastKnownLat,
     double? lastKnownLng,
@@ -303,6 +311,7 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? followers = null,
     Object? following = null,
     Object? blockedUsers = null,
+    Object? savedRides = null,
     Object? rideDistancePreference = null,
     Object? lastKnownLat = freezed,
     Object? lastKnownLng = freezed,
@@ -393,6 +402,10 @@ class __$$UserImplCopyWithImpl<$Res>
             ? _value._blockedUsers
             : blockedUsers // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        savedRides: null == savedRides
+            ? _value._savedRides
+            : savedRides // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
         rideDistancePreference: null == rideDistancePreference
             ? _value.rideDistancePreference
             : rideDistancePreference // ignore: cast_nullable_to_non_nullable
@@ -435,13 +448,15 @@ class _$UserImpl implements _User {
     final List<String> followers = const [],
     final List<String> following = const [],
     final List<String> blockedUsers = const [],
+    final List<String> savedRides = const [],
     this.rideDistancePreference = 50.0,
     this.lastKnownLat,
     this.lastKnownLng,
   }) : _ridingPreferences = ridingPreferences,
        _followers = followers,
        _following = following,
-       _blockedUsers = blockedUsers;
+       _blockedUsers = blockedUsers,
+       _savedRides = savedRides;
 
   factory _$UserImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserImplFromJson(json);
@@ -518,6 +533,15 @@ class _$UserImpl implements _User {
     return EqualUnmodifiableListView(_blockedUsers);
   }
 
+  final List<String> _savedRides;
+  @override
+  @JsonKey()
+  List<String> get savedRides {
+    if (_savedRides is EqualUnmodifiableListView) return _savedRides;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_savedRides);
+  }
+
   @override
   @JsonKey()
   final double rideDistancePreference;
@@ -528,7 +552,7 @@ class _$UserImpl implements _User {
 
   @override
   String toString() {
-    return 'User(id: $id, phoneNumber: $phoneNumber, username: $username, isProfileComplete: $isProfileComplete, email: $email, fullName: $fullName, photoUrl: $photoUrl, coverImageUrl: $coverImageUrl, age: $age, gender: $gender, vehicleModel: $vehicleModel, vehicleRegNo: $vehicleRegNo, vehicleManufacturer: $vehicleManufacturer, emergencyContactName: $emergencyContactName, emergencyContactRelationship: $emergencyContactRelationship, emergencyContactNumber: $emergencyContactNumber, bloodGroup: $bloodGroup, ridingPreferences: $ridingPreferences, followers: $followers, following: $following, blockedUsers: $blockedUsers, rideDistancePreference: $rideDistancePreference, lastKnownLat: $lastKnownLat, lastKnownLng: $lastKnownLng)';
+    return 'User(id: $id, phoneNumber: $phoneNumber, username: $username, isProfileComplete: $isProfileComplete, email: $email, fullName: $fullName, photoUrl: $photoUrl, coverImageUrl: $coverImageUrl, age: $age, gender: $gender, vehicleModel: $vehicleModel, vehicleRegNo: $vehicleRegNo, vehicleManufacturer: $vehicleManufacturer, emergencyContactName: $emergencyContactName, emergencyContactRelationship: $emergencyContactRelationship, emergencyContactNumber: $emergencyContactNumber, bloodGroup: $bloodGroup, ridingPreferences: $ridingPreferences, followers: $followers, following: $following, blockedUsers: $blockedUsers, savedRides: $savedRides, rideDistancePreference: $rideDistancePreference, lastKnownLat: $lastKnownLat, lastKnownLng: $lastKnownLng)';
   }
 
   @override
@@ -586,6 +610,10 @@ class _$UserImpl implements _User {
               other._blockedUsers,
               _blockedUsers,
             ) &&
+            const DeepCollectionEquality().equals(
+              other._savedRides,
+              _savedRides,
+            ) &&
             (identical(other.rideDistancePreference, rideDistancePreference) ||
                 other.rideDistancePreference == rideDistancePreference) &&
             (identical(other.lastKnownLat, lastKnownLat) ||
@@ -619,6 +647,7 @@ class _$UserImpl implements _User {
     const DeepCollectionEquality().hash(_followers),
     const DeepCollectionEquality().hash(_following),
     const DeepCollectionEquality().hash(_blockedUsers),
+    const DeepCollectionEquality().hash(_savedRides),
     rideDistancePreference,
     lastKnownLat,
     lastKnownLng,
@@ -661,6 +690,7 @@ abstract class _User implements User {
     final List<String> followers,
     final List<String> following,
     final List<String> blockedUsers,
+    final List<String> savedRides,
     final double rideDistancePreference,
     final double? lastKnownLat,
     final double? lastKnownLng,
@@ -710,6 +740,8 @@ abstract class _User implements User {
   List<String> get following;
   @override
   List<String> get blockedUsers;
+  @override
+  List<String> get savedRides;
   @override
   double get rideDistancePreference;
   @override

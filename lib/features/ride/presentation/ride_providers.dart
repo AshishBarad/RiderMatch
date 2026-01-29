@@ -154,3 +154,19 @@ final joinedRidesProvider = FutureProvider.autoDispose<List<Ride>>((ref) async {
   if (userId == null) return [];
   return ref.watch(getJoinedRidesUseCaseProvider)(userId);
 });
+
+final savedRidesProvider = FutureProvider.autoDispose<List<Ride>>((ref) async {
+  final authState = ref.watch(authControllerProvider);
+  final user = authState.value;
+  if (user == null || user.savedRides.isEmpty) return [];
+
+  // Fetch all saved rides by their IDs
+  final rides = await Future.wait(
+    user.savedRides.map(
+      (rideId) => ref.watch(getRideByIdUseCaseProvider)(rideId),
+    ),
+  );
+
+  // Filter out nulls and return
+  return rides.whereType<Ride>().toList();
+});

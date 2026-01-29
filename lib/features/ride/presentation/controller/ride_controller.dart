@@ -15,6 +15,7 @@ import '../../../notifications/data/datasources/notification_remote_data_source.
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/seed_data.dart';
 import '../ride_providers.dart';
+import '../../../profile/presentation/profile_providers.dart';
 
 class RideController extends StateNotifier<AsyncValue<List<Ride>>> {
   final GetNearbyRidesUseCase _getNearbyRidesUseCase;
@@ -351,5 +352,35 @@ class RideController extends StateNotifier<AsyncValue<List<Ride>>> {
   void _invalidateLists() {
     ref.invalidate(createdRidesProvider);
     ref.invalidate(joinedRidesProvider);
+  }
+
+  Future<void> toggleSaveRide(String rideId) async {
+    try {
+      final authState = ref.read(authControllerProvider);
+      final user = authState.value;
+
+      if (user == null) {
+        debugPrint('Cannot save ride: User not authenticated');
+        return;
+      }
+
+      final savedRides = List<String>.from(user.savedRides);
+
+      if (savedRides.contains(rideId)) {
+        savedRides.remove(rideId);
+        debugPrint('❤️ Unsaved ride: $rideId');
+      } else {
+        savedRides.add(rideId);
+        debugPrint('❤️ Saved ride: $rideId');
+      }
+
+      // Update user's savedRides in Firestore
+      await ref
+          .read(profileRepositoryProvider)
+          .updateProfile(user.copyWith(savedRides: savedRides));
+    } catch (e) {
+      debugPrint('Error toggling save ride: $e');
+      rethrow;
+    }
   }
 }

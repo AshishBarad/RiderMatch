@@ -385,20 +385,32 @@ class RideDetailScreen extends ConsumerWidget {
         ),
         if (!isParticipant) ...[
           const SizedBox(width: 16),
-          Container(
-            height: 56,
-            width: 56,
-            decoration: BoxDecoration(
-              color: AppColors.accentOrange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.favorite_border,
-                color: AppColors.accentOrange,
-              ),
-              onPressed: () {},
-            ),
+          Consumer(
+            builder: (context, ref, _) {
+              final authState = ref.watch(authControllerProvider);
+              final user = authState.value;
+              final isSaved = user?.savedRides.contains(ride.id) ?? false;
+
+              return Container(
+                height: 56,
+                width: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.accentOrange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    isSaved ? Icons.favorite : Icons.favorite_border,
+                    color: AppColors.accentOrange,
+                  ),
+                  onPressed: () {
+                    ref
+                        .read(rideControllerProvider.notifier)
+                        .toggleSaveRide(ride.id);
+                  },
+                ),
+              );
+            },
           ),
         ],
       ],
