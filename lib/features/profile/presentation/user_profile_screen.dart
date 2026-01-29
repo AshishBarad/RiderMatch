@@ -29,7 +29,11 @@ class UserProfileScreen extends ConsumerWidget {
       backgroundColor: AppColors.backgroundLight,
       body: userAsync.when(
         data: (user) {
-          if (user == null) return const Center(child: Text('User not found'));
+          // Use initialUser as fallback if stream returns null
+          final displayUser = user ?? initialUser;
+          if (displayUser == null) {
+            return const Center(child: Text('User not found'));
+          }
           return SingleChildScrollView(
             child: Column(
               children: [
@@ -45,9 +49,9 @@ class UserProfileScreen extends ConsumerWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        image: user.coverImageUrl != null
+                        image: displayUser.coverImageUrl != null
                             ? DecorationImage(
-                                image: NetworkImage(user.coverImageUrl!),
+                                image: NetworkImage(displayUser.coverImageUrl!),
                                 fit: BoxFit.cover,
                                 colorFilter: ColorFilter.mode(
                                   Colors.black.withValues(alpha: 0.1),
@@ -65,7 +69,7 @@ class UserProfileScreen extends ConsumerWidget {
                       top: 140,
                       child:
                           ProfileAvatar(
-                            imageUrl: user.photoUrl,
+                            imageUrl: displayUser.photoUrl,
                             radius: 60,
                             borderWidth: 4,
                             borderColor: Colors.white,
@@ -77,10 +81,13 @@ class UserProfileScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 70),
-                Text(user.fullName ?? 'Rider', style: AppTypography.header),
                 Text(
-                  user.username != null
-                      ? '@${user.username}'
+                  displayUser.fullName ?? 'Rider',
+                  style: AppTypography.header,
+                ),
+                Text(
+                  displayUser.username != null
+                      ? '@${displayUser.username}'
                       : 'Joined Recently',
                   style: AppTypography.body.copyWith(
                     color: AppColors.textSecondary,
@@ -88,8 +95,8 @@ class UserProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 24),
                 _buildStatsRow(
-                  user.followers.length,
-                  user.following.length,
+                  displayUser.followers.length,
+                  displayUser.following.length,
                   12,
                 ),
                 const SizedBox(height: 32),
@@ -102,7 +109,7 @@ class UserProfileScreen extends ConsumerWidget {
                   _buildSavedRidesCarousel(),
                 ],
                 const SizedBox(height: 24),
-                _buildActionsList(context, ref, isMe, user),
+                _buildActionsList(context, ref, isMe, displayUser),
                 const SizedBox(height: 100),
               ],
             ),

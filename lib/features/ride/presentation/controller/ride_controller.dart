@@ -62,7 +62,7 @@ class RideController extends StateNotifier<AsyncValue<List<Ride>>> {
     }
   }
 
-  Future<void> getNearbyRides() async {
+  Future<void> getNearbyRides({bool forceRefresh = false}) async {
     state = const AsyncValue.loading();
 
     double radiusKm = 50.0;
@@ -87,14 +87,24 @@ class RideController extends StateNotifier<AsyncValue<List<Ride>>> {
 
         if (permission == LocationPermission.always ||
             permission == LocationPermission.whileInUse) {
-          // Try last known first (fast)
-          Position? position = await Geolocator.getLastKnownPosition();
+          Position? position;
 
-          if (position == null) {
-            // Then current with timeout
+          // Force fresh location if requested (pull-to-refresh)
+          if (forceRefresh) {
+            debugPrint('🔄 FORCE REFRESH: Getting fresh location...');
             position = await Geolocator.getCurrentPosition(
               timeLimit: const Duration(seconds: 10),
             );
+          } else {
+            // Try last known first (fast)
+            position = await Geolocator.getLastKnownPosition();
+
+            if (position == null) {
+              // Then current with timeout
+              position = await Geolocator.getCurrentPosition(
+                timeLimit: const Duration(seconds: 10),
+              );
+            }
           }
 
           myLat = position.latitude;

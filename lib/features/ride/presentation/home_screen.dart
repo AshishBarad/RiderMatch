@@ -48,8 +48,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           SafeArea(
             child: RefreshIndicator(
-              onRefresh: () =>
-                  ref.read(rideControllerProvider.notifier).getNearbyRides(),
+              onRefresh: () => ref
+                  .read(rideControllerProvider.notifier)
+                  .getNearbyRides(forceRefresh: true),
               child: CustomScrollView(
                 slivers: [
                   // App Bar / Header
